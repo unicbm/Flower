@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArtworkCard, getArtworkMarkup } from "./ArtworkCard.jsx";
+import { createMelodyPlayer } from "./audioPlayback.js";
 import { downloadPng, downloadSvg } from "./exportArtwork.js";
 import { generateArtwork } from "./flowerGenerator.js";
+import { generateMelody } from "./musicGenerator.js";
 import { parseArtworkState, serializeArtworkState } from "./shareState.js";
 
 const defaultControls = {
@@ -46,12 +48,14 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [artKey, setArtKey] = useState(0);
   const [isBusy, setIsBusy] = useState(false);
+  const [isMelodyPlaying, setIsMelodyPlaying] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [shareLink, setShareLink] = useState(
     typeof window === "undefined" ? "" : window.location.href,
   );
   const hydrateOnce = useRef(false);
   const exportRef = useRef(null);
+  const melodyPlayerRef = useRef(null);
 
   useEffect(() => {
     if (hydrateOnce.current) {
@@ -157,7 +161,37 @@ export default function App() {
     [seed, controls, compositionMode],
   );
 
+  const melody = useMemo(
+    () =>
+      generateMelody(artwork, {
+        seed,
+        controls: {
+          density: Number(controls.density.toFixed(2)),
+          airy: Number(controls.airy.toFixed(2)),
+          bloomSize: Number(controls.bloomSize.toFixed(2)),
+        },
+        compositionMode,
+      }),
+    [artwork, compositionMode, controls, seed],
+  );
+
+  useEffect(() => {
+    const player = createMelodyPlayer({
+      onStateChange: setIsMelodyPlaying,
+    });
+    melodyPlayerRef.current = player;
+    return () => {
+      melodyPlayerRef.current = null;
+      player.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    melodyPlayerRef.current?.stop();
+  }, [melody.id]);
+
   function handleRandomize() {
+    melodyPlayerRef.current?.stop();
     setSeed(createSeed());
     setArtKey((current) => current + 1);
     setIsExportOpen(false);
@@ -189,10 +223,31 @@ export default function App() {
     if (nextMode === compositionMode) {
       return;
     }
+    melodyPlayerRef.current?.stop();
     setCompositionMode(nextMode);
     setArtKey((current) => current + 1);
     setIsExportOpen(false);
     setStatus(nextMode === "abstract" ? "Abstract mode enabled" : "Bouquet mode enabled");
+  }
+
+  async function handleToggleMelody() {
+    if (!melodyPlayerRef.current) {
+      setStatus("Audio is not ready yet.");
+      return;
+    }
+
+    if (isMelodyPlaying) {
+      melodyPlayerRef.current.stop();
+      setStatus("Melody stopped");
+      return;
+    }
+
+    try {
+      await melodyPlayerRef.current.play(melody);
+      setStatus(`Playing ${melody.descriptor}`);
+    } catch {
+      setStatus("Audio playback is not supported here.");
+    }
   }
 
   async function handleExport(type) {
@@ -269,6 +324,14 @@ export default function App() {
             <button type="button" className="tool-button primary" onClick={handleRandomize}>
               {compositionMode === "abstract" ? "New Artwork" : "New Bouquet"}
             </button>
+            <button
+              type="button"
+              className={`tool-button melody-button${isMelodyPlaying ? " is-active" : ""}`}
+              aria-pressed={isMelodyPlaying}
+              onClick={handleToggleMelody}
+            >
+              {isMelodyPlaying ? "Stop Melody" : "Play Melody"}
+            </button>
             <button type="button" className="tool-button" onClick={handleCopyLink}>
               Copy Link
             </button>
@@ -293,6 +356,13 @@ export default function App() {
               ) : null}
             </div>
           </div>
+        </div>
+
+        <div className="melody-strip motion-rise delay-two" aria-live="polite">
+          <span className="melody-pill">{melody.title}</span>
+          <span className="melody-pill">Piano in {melody.descriptor}</span>
+          <span className="melody-pill">{melody.tempo} BPM</span>
+          <span className="melody-pill">{Math.round(melody.durationSeconds)}s</span>
         </div>
 
         <div className={`status-toast${status ? " is-visible" : ""}`} aria-live="polite">

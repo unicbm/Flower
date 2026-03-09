@@ -1,5 +1,141 @@
+import { createRandom } from "./random.js";
+
 function petalBlurId(value) {
   return Math.min(22, Math.max(5, Math.round(value * 10)));
+}
+
+const motionPresets = {
+  atmosphere: {
+    driftX: [1.6, 4.4],
+    driftY: [1.4, 4.8],
+    rotate: [0.2, 1.1],
+    duration: [15, 23],
+    tilt: [4, 12],
+  },
+  paper: {
+    driftX: [0.3, 1.1],
+    driftY: [0.3, 1],
+    rotate: [0.08, 0.34],
+    duration: [20, 32],
+    tilt: [1, 4],
+  },
+  shadow: {
+    driftX: [0.6, 1.8],
+    driftY: [0.8, 2.1],
+    rotate: [0.18, 0.48],
+    duration: [18, 26],
+    tilt: [2, 6],
+  },
+  ornament: {
+    driftX: [0.8, 2],
+    driftY: [0.8, 2],
+    rotate: [0.24, 0.72],
+    duration: [14, 20],
+    tilt: [2, 7],
+  },
+  dust: {
+    driftX: [1.4, 3.8],
+    driftY: [1.2, 4.2],
+    rotate: [0.18, 0.9],
+    duration: [12, 18],
+    tilt: [4, 10],
+  },
+  stem: {
+    driftX: [0.4, 1.4],
+    driftY: [0.6, 1.8],
+    rotate: [0.18, 0.46],
+    duration: [11, 15],
+    tilt: [3, 8],
+  },
+  branch: {
+    driftX: [0.6, 1.8],
+    driftY: [0.8, 2],
+    rotate: [0.22, 0.68],
+    duration: [10, 14],
+    tilt: [4, 9],
+  },
+  leaf: {
+    driftX: [0.9, 2.2],
+    driftY: [0.9, 2.4],
+    rotate: [0.32, 1.2],
+    duration: [8, 13],
+    tilt: [5, 12],
+  },
+  sprig: {
+    driftX: [1, 2.6],
+    driftY: [0.8, 2.2],
+    rotate: [0.3, 0.94],
+    duration: [9, 14],
+    tilt: [4, 10],
+  },
+  bloom: {
+    driftX: [0.8, 2],
+    driftY: [0.8, 1.8],
+    rotate: [0.5, 1.8],
+    duration: [7, 11.5],
+    tilt: [8, 18],
+  },
+  bud: {
+    driftX: [0.7, 1.8],
+    driftY: [0.7, 1.6],
+    rotate: [0.48, 1.3],
+    duration: [8, 12],
+    tilt: [7, 15],
+  },
+  petal: {
+    driftX: [2.4, 6.2],
+    driftY: [1.6, 5.4],
+    rotate: [1.2, 3.4],
+    duration: [9, 16],
+    tilt: [10, 24],
+  },
+};
+
+function range(random, min, max) {
+  return min + (max - min) * random();
+}
+
+function formatMotionStyle(seed, key, kind, originX, originY) {
+  const preset = motionPresets[kind];
+  if (!preset) {
+    return "";
+  }
+  const random = createRandom(`${seed}:${key}:${kind}`);
+  const driftX = range(random, preset.driftX[0], preset.driftX[1]);
+  const driftY = range(random, preset.driftY[0], preset.driftY[1]);
+  const rotate = range(random, preset.rotate[0], preset.rotate[1]);
+  const duration = range(random, preset.duration[0], preset.duration[1]);
+  const delay = range(random, 0, duration);
+  const direction = random() > 0.5 ? 1 : -1;
+  const depth = range(random, preset.tilt[0], preset.tilt[1]) * direction;
+  return [
+    `--motion-drift-x:${(driftX * direction).toFixed(2)}px`,
+    `--motion-drift-y:${(driftY * (direction * -1)).toFixed(2)}px`,
+    `--motion-rotate:${(rotate * direction).toFixed(2)}deg`,
+    `--motion-duration:${duration.toFixed(2)}s`,
+    `--motion-delay:-${delay.toFixed(2)}s`,
+    `--motion-depth:${depth.toFixed(2)}px`,
+    `--motion-origin-x:${originX.toFixed(2)}px`,
+    `--motion-origin-y:${originY.toFixed(2)}px`,
+  ].join(";");
+}
+
+function wrapMotion(markup, artworkSeed, item) {
+  if (!item.motion) {
+    return markup;
+  }
+  const style = formatMotionStyle(
+    artworkSeed,
+    item.key,
+    item.motion.kind,
+    item.motion.originX,
+    item.motion.originY,
+  );
+  return `
+    <g class="motion-node motion-node--${item.motion.kind}" style="${style}">
+      ${markup}
+    </g>
+  `;
 }
 
 function renderBloom(bloom, palette) {
@@ -184,16 +320,19 @@ function buildMarkup(artwork) {
       key: `veil-${index}`,
       depth: veil.depth ?? -260,
       markup: renderVeil(veil),
+      motion: { kind: "atmosphere", originX: veil.x, originY: veil.y },
     })),
     ...paperStrokes.map((stroke, index) => ({
       key: `paper-stroke-${index}`,
       depth: stroke.depth ?? -220,
       markup: renderPaperStroke(stroke),
+      motion: { kind: "paper", originX: frame.width * 0.5, originY: frame.height * 0.5 },
     })),
     ...washes.map((wash, index) => ({
       key: `wash-${index}`,
       depth: wash.depth ?? -200,
       markup: renderWash(wash),
+      motion: { kind: "atmosphere", originX: wash.x, originY: wash.y },
     })),
     {
       key: "texture",
@@ -209,36 +348,43 @@ function buildMarkup(artwork) {
             .join("")}
         </g>
       `,
+      motion: { kind: "paper", originX: frame.width * 0.5, originY: frame.height * 0.5 },
     },
     ...shadowLeaves.map((leaf, index) => ({
       key: `shadow-leaf-${index}`,
       depth: leaf.depth ?? -150,
       markup: renderShadowLeaf(leaf),
+      motion: { kind: "shadow", originX: frame.width * 0.5, originY: frame.height * 0.5 },
     })),
     ...ornaments.map((ornament, index) => ({
       key: `ornament-${index}`,
       depth: ornament.depth ?? -120,
       markup: `<path d="${ornament.path}" fill="none" stroke="${ornament.stroke}" stroke-width="1.25" opacity="${ornament.opacity.toFixed(2)}" />`,
+      motion: { kind: "ornament", originX: frame.width * 0.5, originY: frame.height * 0.5 },
     })),
     ...gildedDust.map((particle, index) => ({
       key: `dust-${index}`,
       depth: particle.depth ?? -90,
       markup: `<circle cx="${particle.x.toFixed(2)}" cy="${particle.y.toFixed(2)}" r="${particle.radius.toFixed(2)}" fill="${particle.fill}" opacity="${particle.opacity.toFixed(2)}" />`,
+      motion: { kind: "dust", originX: particle.x, originY: particle.y },
     })),
     ...tendrils.map((tendril, index) => ({
       key: `tendril-${index}`,
       depth: tendril.depth ?? -80,
       markup: renderTendril(tendril),
+      motion: { kind: "branch", originX: frame.width * 0.5, originY: frame.height * 0.66 },
     })),
     ...stems.map((stem, index) => ({
       key: `stem-${index}`,
       depth: stem.depth ?? 0,
       markup: `<path d="${stem.path}" fill="none" stroke="${stem.color}" stroke-width="${stem.width.toFixed(2)}" stroke-linecap="round" opacity="${stem.opacity.toFixed(2)}" />`,
+      motion: { kind: "stem", originX: frame.width * 0.5, originY: frame.height * 0.86 },
     })),
     ...branchlets.map((branch, index) => ({
       key: `branch-${index}`,
       depth: branch.depth ?? 0,
       markup: `<path d="${branch.path}" fill="none" stroke="${branch.color}" stroke-width="${branch.width.toFixed(2)}" stroke-linecap="round" opacity="${branch.opacity.toFixed(2)}" />`,
+      motion: { kind: "branch", originX: frame.width * 0.5, originY: frame.height * 0.74 },
     })),
     ...leaves.map((leaf, index) => ({
       key: `leaf-${index}`,
@@ -249,35 +395,41 @@ function buildMarkup(artwork) {
           <path d="${leaf.veinPath}" fill="none" stroke="${palette.haze}" stroke-width="1.1" opacity="${(leaf.opacity * 0.7).toFixed(2)}" />
         </g>
       `,
+      motion: { kind: "leaf", originX: frame.width * 0.5, originY: frame.height * 0.72 },
     })),
     ...sprigs.map((sprig, index) => ({
       key: `sprig-${index}`,
       depth: sprig.depth ?? 0,
       markup: renderSprig(sprig),
+      motion: { kind: "sprig", originX: frame.width * 0.5, originY: frame.height * 0.68 },
     })),
     ...miniBlooms.map((miniBloom, index) => ({
       key: `mini-${index}`,
       depth: miniBloom.depth ?? 40,
       markup: renderMiniBloom(miniBloom),
+      motion: { kind: "bud", originX: frame.width * 0.5, originY: frame.height * 0.52 },
     })),
     ...blooms.map((bloom, index) => ({
       key: `bloom-${index}`,
       depth: bloom.depth ?? 100,
       markup: renderBloom(bloom, palette),
+      motion: { kind: "bloom", originX: bloom.x, originY: bloom.y },
     })),
     ...buds.map((bud, index) => ({
       key: `bud-${index}`,
       depth: bud.depth ?? 110,
       markup: renderBud(bud, palette),
+      motion: { kind: "bud", originX: bud.x, originY: bud.y },
     })),
     ...floatingPetals.map((petal, index) => ({
       key: `petal-${index}`,
       depth: petal.depth ?? 160,
       markup: renderFloatingPetal(petal),
+      motion: { kind: "petal", originX: petal.x, originY: petal.y },
     })),
   ]
     .sort((left, right) => left.depth - right.depth)
-    .map((item) => item.markup)
+    .map((item) => wrapMotion(item.markup, artwork.seed ?? "flower", item))
     .join("");
 
   return `
@@ -375,12 +527,15 @@ function buildMarkup(artwork) {
 export function ArtworkCard({ artwork, artKey }) {
   const markup = buildMarkup(artwork);
   return (
-    <div className="art-frame">
-      <div
-        className="art-svg"
-        key={artKey}
-        dangerouslySetInnerHTML={{ __html: markup }}
-      />
+    <div className="art-scene">
+      <div className="art-frame">
+        <div className="art-frame-shine" aria-hidden="true" />
+        <div
+          className="art-svg"
+          key={artKey}
+          dangerouslySetInnerHTML={{ __html: markup }}
+        />
+      </div>
     </div>
   );
 }
