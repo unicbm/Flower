@@ -1,0 +1,376 @@
+:root {
+  color-scheme: light;
+  --bg: #f5efe8;
+  --paper: rgba(255, 252, 248, 0.72);
+  --paper-strong: rgba(255, 252, 248, 0.88);
+  --ink: #5a4c4f;
+  --ink-soft: rgba(90, 76, 79, 0.56);
+  --line: rgba(123, 102, 106, 0.16);
+  --line-strong: rgba(113, 90, 96, 0.3);
+  --accent: #e8d3ca;
+  --shadow: 0 20px 48px rgba(115, 92, 98, 0.1);
+  --sans: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --serif: "Iowan Old Style", "Songti SC", "STSong", Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top, rgba(255, 250, 245, 0.88), transparent 34%),
+    linear-gradient(180deg, #f8f2eb 0%, #f0eee8 52%, #ebe5de 100%);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.page-shell {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.backdrop {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(32px);
+}
+
+.backdrop-a {
+  width: 32rem;
+  height: 32rem;
+  top: -10rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgba(225, 195, 187, 0.28), rgba(225, 195, 187, 0));
+}
+
+.backdrop-b {
+  width: 28rem;
+  height: 28rem;
+  left: -8rem;
+  bottom: -6rem;
+  background: radial-gradient(circle, rgba(181, 197, 188, 0.22), rgba(181, 197, 188, 0));
+}
+
+.gallery-shell {
+  width: min(1280px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.2rem 0 1.6rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 0.2rem 0 0.9rem;
+}
+
+.brand-lockup {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.eyebrow {
+  margin: 0;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+
+.brand-lockup h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(1rem, 1.6vw, 1.22rem);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.stage {
+  position: relative;
+  width: min(100%, calc((100vh - 10.5rem) * 0.78));
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.art-frame {
+  padding: clamp(0.55rem, 1.4vw, 1rem);
+  border-radius: 34px;
+  background: linear-gradient(180deg, var(--paper-strong), rgba(255, 252, 248, 0.48));
+  border: 1px solid rgba(255, 255, 255, 0.66);
+  box-shadow: var(--shadow);
+}
+
+.art-svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 28px;
+  box-shadow: 0 22px 40px rgba(113, 91, 95, 0.12);
+  animation: bloomIn 460ms ease;
+}
+
+.art-svg svg {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 10.5rem);
+}
+
+.toolbar-shell {
+  display: flex;
+  justify-content: center;
+  margin-top: -2.15rem;
+  padding-bottom: 0.2rem;
+}
+
+.toolbar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem;
+  border-radius: 999px;
+  background: rgba(255, 251, 247, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 14px 36px rgba(102, 79, 85, 0.1);
+  backdrop-filter: blur(18px);
+}
+
+.tool-button {
+  min-width: 6.1rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0.82rem 1.1rem;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.tool-button:hover,
+.tool-button[aria-expanded="true"] {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.tool-button.primary {
+  background: rgba(232, 211, 202, 0.54);
+  border-color: rgba(144, 118, 110, 0.16);
+}
+
+.export-group {
+  position: relative;
+}
+
+.export-menu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.7rem);
+  display: grid;
+  gap: 0.32rem;
+  min-width: 7rem;
+  padding: 0.4rem;
+  transform: translateX(-50%);
+  border-radius: 18px;
+  background: rgba(255, 251, 247, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  box-shadow: 0 18px 38px rgba(97, 74, 79, 0.12);
+  backdrop-filter: blur(14px);
+}
+
+.export-menu button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.72rem 0.9rem;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 160ms ease;
+}
+
+.export-menu button:hover {
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.status-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.3rem;
+  z-index: 10;
+  padding: 0.78rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(88, 72, 76, 0.82);
+  color: #fcf8f3;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translate(-50%, 12px);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+  pointer-events: none;
+}
+
+.status-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.motion-rise {
+  animation: rise 680ms ease both;
+}
+
+.delay-one {
+  animation-delay: 90ms;
+}
+
+.delay-two {
+  animation-delay: 160ms;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bloomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.992);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .gallery-shell {
+    width: min(100% - 1rem, 100%);
+    padding-top: 0.9rem;
+  }
+
+  .stage {
+    width: min(100%, calc((100vh - 9.5rem) * 0.78));
+  }
+
+  .art-svg svg {
+    max-height: calc(100vh - 9.5rem);
+  }
+
+  .toolbar-shell {
+    margin-top: -1.35rem;
+  }
+
+  .toolbar {
+    gap: 0.4rem;
+    padding: 0.4rem;
+  }
+
+  .tool-button {
+    min-width: 0;
+    padding-inline: 0.95rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    min-height: 56px;
+    padding-bottom: 0.7rem;
+  }
+
+  .stage {
+    width: 100%;
+    max-width: none;
+  }
+
+  .brand-lockup h1 {
+    font-size: 0.98rem;
+  }
+
+  .art-frame {
+    padding: 0.45rem;
+    border-radius: 26px;
+  }
+
+  .art-svg {
+    border-radius: 22px;
+  }
+
+  .art-svg svg {
+    width: 100%;
+    max-height: none;
+  }
+
+  .toolbar-shell {
+    margin-top: 0.85rem;
+  }
+
+  .toolbar {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    border-radius: 26px;
+  }
+
+  .tool-button {
+    flex: 1 1 calc(50% - 0.4rem);
+  }
+
+  .export-group {
+    flex: 1 1 calc(50% - 0.4rem);
+  }
+
+  .export-group .tool-button {
+    width: 100%;
+  }
+
+  .export-menu {
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    min-width: 0;
+    transform: none;
+  }
+
+  .status-toast {
+    bottom: 0.8rem;
+    width: calc(100% - 1.2rem);
+    text-align: center;
+    border-radius: 22px;
+  }
+}

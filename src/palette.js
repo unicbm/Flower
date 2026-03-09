@@ -1,0 +1,38 @@
+export const palettes = [
+  {
+    name: "Sakura Mist",
+    background: ["#fbf5ef", "#f6ece7", "#efe7df"],
+    bloom: ["#e4b7b1", "#f0cfcb", "#b8a0be", "#f3ddce", "#cf8e98"],
+    leaves: ["#819b8a", "#9ab4a1", "#708d88"],
+    accent: "#795d63",
+    metal: "#b99879",
+    haze: "#fff8f3",
+  },
+  {
+    name: "Moonlit Peony",
+    background: ["#f7f1ec", "#eee6e3", "#e2dad7"],
+    bloom: ["#d7afb2", "#ead4d2", "#b494a9", "#f2e1d6", "#8f6f84"],
+    leaves: ["#778d85", "#92a59f", "#657973"],
+    accent: "#6d5761",
+    metal: "#bca07e",
+    haze: "#fffaf6",
+  },
+  {
+    name: "Rainy Garden",
+    background: ["#f4f4ef", "#e8ecec", "#dde6e7"],
+    bloom: ["#bdcad6", "#e0d0d7", "#aebfc2", "#f0e7da", "#8fa7b6"],
+    leaves: ["#6d877f", "#91a39b", "#78918b"],
+    accent: "#55666f",
+    metal: "#9d8f7a",
+    haze: "#fbfcfa",
+  },
+  {
+    name: "Apricot Tea",
+    background: ["#fcf5ec", "#f8ede1", "#f2e5d7"],
+    bloom: ["#e2bea4", "#f3d7c5", "#ddb1a4", "#f6e7d3", "#cf937f"],
+    leaves: ["#8ea17f", "#a5b49a", "#72896d"],
+    accent: "#7e6255",
+    metal: "#bf9a68",
+    haze: "#fff9f0",
+  },
+];

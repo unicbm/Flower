@@ -1,0 +1,390 @@
+function petalBlurId(value) {
+  return Math.min(22, Math.max(5, Math.round(value * 10)));
+}
+
+function renderBloom(bloom, palette) {
+  const pigmentPools = bloom.pigmentPools ?? [];
+  const shapes = bloom.shapes ?? [];
+  const highlights = bloom.highlights ?? [];
+  const stamens = bloom.stamens ?? [];
+  const centerDots = bloom.centerDots ?? bloom.coreDots ?? [];
+  return `
+    <g transform="rotate(${bloom.rotation.toFixed(2)} ${bloom.x.toFixed(2)} ${bloom.y.toFixed(2)})">
+      <ellipse cx="${bloom.x.toFixed(2)}" cy="${(bloom.y + bloom.shadow.offsetY).toFixed(2)}" rx="${bloom.shadow.rx.toFixed(2)}" ry="${bloom.shadow.ry.toFixed(2)}" fill="${bloom.shadow.fill}" opacity="${bloom.shadow.opacity.toFixed(2)}" filter="url(#shadowBlur)" />
+      <circle cx="${bloom.x.toFixed(2)}" cy="${bloom.y.toFixed(2)}" r="${bloom.glow.toFixed(2)}" fill="${palette.haze}" opacity="0.55" filter="url(#softBlur)" />
+      ${pigmentPools
+        .map(
+          (pool) => `
+            <ellipse cx="${pool.x.toFixed(2)}" cy="${pool.y.toFixed(2)}" rx="${pool.rx.toFixed(2)}" ry="${pool.ry.toFixed(2)}" fill="${pool.fill}" opacity="${pool.opacity.toFixed(2)}" transform="rotate(${pool.rotation.toFixed(2)} ${pool.x.toFixed(2)} ${pool.y.toFixed(2)})" />
+          `,
+        )
+        .join("")}
+      ${shapes
+        .map(
+          (shape) => `
+            <path d="${shape.path}" fill="${shape.fill}" opacity="${shape.opacity.toFixed(2)}" filter="url(#petalBlur-${petalBlurId(shape.blur)})" stroke="${shape.stroke ?? "none"}" stroke-opacity="${shape.strokeOpacity?.toFixed(2) ?? 0}" stroke-width="${shape.strokeWidth ?? 0}" />
+          `,
+        )
+        .join("")}
+      ${highlights
+        .map(
+          (highlight) => `
+            <path d="${highlight.path}" fill="none" stroke="${highlight.stroke}" stroke-width="${highlight.strokeWidth.toFixed(2)}" opacity="${highlight.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+      ${stamens
+        .map(
+          (stamen) => `
+            <path d="${stamen.path}" fill="none" stroke="${palette.accent}" stroke-width="0.7" opacity="${stamen.opacity.toFixed(2)}" />
+            <circle cx="${stamen.x.toFixed(2)}" cy="${stamen.y.toFixed(2)}" r="${stamen.radius.toFixed(2)}" fill="${stamen.fill}" opacity="${stamen.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+      ${centerDots
+        .map(
+          (dot) => `
+            <circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="${dot.radius.toFixed(2)}" fill="${dot.fill}" opacity="${dot.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+      <path d="${bloom.coreShape.path}" fill="${bloom.coreShape.fill}" opacity="${bloom.coreShape.opacity.toFixed(2)}" />
+    </g>
+  `;
+}
+
+function renderMiniBloom(miniBloom) {
+  return `
+    <g>
+      ${miniBloom.petals
+        .map(
+          (petal) => `
+            <path d="${petal.path}" fill="${petal.fill}" opacity="${petal.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+      ${miniBloom.dots
+        .map(
+          (dot) => `
+            <circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="${dot.radius.toFixed(2)}" fill="${dot.fill}" opacity="${dot.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+    </g>
+  `;
+}
+
+function renderBud(bud, palette) {
+  return `
+    <g>
+      <path d="${bud.stemPath}" fill="none" stroke="${palette.accent}" stroke-width="1.2" opacity="0.42" />
+      <g transform="rotate(${bud.rotation.toFixed(2)} ${bud.x.toFixed(2)} ${bud.y.toFixed(2)})">
+        <path d="${bud.sepal.path}" fill="${bud.sepal.fill}" opacity="${bud.sepal.opacity.toFixed(2)}" />
+        ${bud.petals
+          .map(
+            (petal) => `
+              <path d="${petal.path}" fill="${petal.fill}" opacity="${petal.opacity.toFixed(2)}" />
+            `,
+          )
+          .join("")}
+      </g>
+    </g>
+  `;
+}
+
+function renderSprig(sprig) {
+  return `
+    <g>
+      <path d="${sprig.path}" fill="none" stroke="${sprig.stroke}" stroke-width="1.1" opacity="${sprig.opacity.toFixed(2)}" />
+      ${sprig.berries
+        .map(
+          (berry) => `
+            <circle cx="${berry.x.toFixed(2)}" cy="${berry.y.toFixed(2)}" r="${berry.radius.toFixed(2)}" fill="${berry.fill}" opacity="${berry.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+    </g>
+  `;
+}
+
+function renderTendril(tendril) {
+  return `
+    <g>
+      <path d="${tendril.path}" fill="none" stroke="${tendril.stroke}" stroke-width="1" opacity="${tendril.opacity.toFixed(2)}" />
+      ${tendril.beads
+        .map(
+          (bead) => `
+            <circle cx="${bead.x.toFixed(2)}" cy="${bead.y.toFixed(2)}" r="${bead.radius.toFixed(2)}" fill="${bead.fill}" opacity="${bead.opacity.toFixed(2)}" />
+          `,
+        )
+        .join("")}
+    </g>
+  `;
+}
+
+function renderWash(wash) {
+  return `
+    <ellipse cx="${wash.x.toFixed(2)}" cy="${wash.y.toFixed(2)}" rx="${wash.rx.toFixed(2)}" ry="${wash.ry.toFixed(2)}" fill="${wash.fill}" opacity="${wash.opacity.toFixed(2)}" transform="rotate(${wash.rotation.toFixed(2)} ${wash.x.toFixed(2)} ${wash.y.toFixed(2)})" filter="url(#washBlur)" />
+  `;
+}
+
+function renderVeil(veil) {
+  return `
+    <ellipse cx="${veil.x.toFixed(2)}" cy="${veil.y.toFixed(2)}" rx="${veil.rx.toFixed(2)}" ry="${veil.ry.toFixed(2)}" fill="${veil.fill}" opacity="${veil.opacity.toFixed(2)}" transform="rotate(${veil.rotation.toFixed(2)} ${veil.x.toFixed(2)} ${veil.y.toFixed(2)})" filter="url(#veilBlur)" />
+  `;
+}
+
+function renderPaperStroke(stroke) {
+  return `
+    <path d="${stroke.path}" fill="none" stroke="${stroke.stroke}" stroke-width="${stroke.width.toFixed(2)}" stroke-linecap="round" opacity="${stroke.opacity.toFixed(2)}" />
+  `;
+}
+
+function renderShadowLeaf(leaf) {
+  return `
+    <g>
+      <path d="${leaf.path}" fill="${leaf.fill}" opacity="${leaf.opacity.toFixed(2)}" />
+      <path d="${leaf.veinPath}" fill="none" stroke="${leaf.stroke}" stroke-width="1" opacity="${(leaf.opacity * 0.72).toFixed(2)}" />
+    </g>
+  `;
+}
+
+function renderFloatingPetal(petal) {
+  return `
+    <ellipse cx="${petal.x.toFixed(2)}" cy="${petal.y.toFixed(2)}" rx="${petal.width.toFixed(2)}" ry="${petal.height.toFixed(2)}" fill="${petal.fill}" opacity="${petal.opacity.toFixed(2)}" transform="rotate(${petal.rotation.toFixed(2)} ${petal.x.toFixed(2)} ${petal.y.toFixed(2)})" />
+  `;
+}
+
+function buildMarkup(artwork) {
+  const grainSeed =
+    Array.from(artwork.seed ?? "").reduce((total, char) => total + char.charCodeAt(0), 0) % 97;
+  const {
+    frame,
+    palette,
+    atmosphereVeils = [],
+    paperStrokes = [],
+    shadowLeaves = [],
+    gildedDust = [],
+    stems,
+    branchlets,
+    leaves,
+    blooms,
+    buds,
+    miniBlooms,
+    floatingPetals,
+    washes,
+    tendrils,
+    ornaments,
+    sprigs,
+    textureDots,
+  } = artwork;
+
+  const renderables = [
+    ...atmosphereVeils.map((veil, index) => ({
+      key: `veil-${index}`,
+      depth: veil.depth ?? -260,
+      markup: renderVeil(veil),
+    })),
+    ...paperStrokes.map((stroke, index) => ({
+      key: `paper-stroke-${index}`,
+      depth: stroke.depth ?? -220,
+      markup: renderPaperStroke(stroke),
+    })),
+    ...washes.map((wash, index) => ({
+      key: `wash-${index}`,
+      depth: wash.depth ?? -200,
+      markup: renderWash(wash),
+    })),
+    {
+      key: "texture",
+      depth: -180,
+      markup: `
+        <g opacity="0.58">
+          ${textureDots
+            .map(
+              (dot) => `
+                <circle cx="${dot.x.toFixed(2)}" cy="${dot.y.toFixed(2)}" r="${dot.radius.toFixed(2)}" fill="${palette.accent}" opacity="${dot.opacity.toFixed(2)}" />
+              `,
+            )
+            .join("")}
+        </g>
+      `,
+    },
+    ...shadowLeaves.map((leaf, index) => ({
+      key: `shadow-leaf-${index}`,
+      depth: leaf.depth ?? -150,
+      markup: renderShadowLeaf(leaf),
+    })),
+    ...ornaments.map((ornament, index) => ({
+      key: `ornament-${index}`,
+      depth: ornament.depth ?? -120,
+      markup: `<path d="${ornament.path}" fill="none" stroke="${ornament.stroke}" stroke-width="1.25" opacity="${ornament.opacity.toFixed(2)}" />`,
+    })),
+    ...gildedDust.map((particle, index) => ({
+      key: `dust-${index}`,
+      depth: particle.depth ?? -90,
+      markup: `<circle cx="${particle.x.toFixed(2)}" cy="${particle.y.toFixed(2)}" r="${particle.radius.toFixed(2)}" fill="${particle.fill}" opacity="${particle.opacity.toFixed(2)}" />`,
+    })),
+    ...tendrils.map((tendril, index) => ({
+      key: `tendril-${index}`,
+      depth: tendril.depth ?? -80,
+      markup: renderTendril(tendril),
+    })),
+    ...stems.map((stem, index) => ({
+      key: `stem-${index}`,
+      depth: stem.depth ?? 0,
+      markup: `<path d="${stem.path}" fill="none" stroke="${stem.color}" stroke-width="${stem.width.toFixed(2)}" stroke-linecap="round" opacity="${stem.opacity.toFixed(2)}" />`,
+    })),
+    ...branchlets.map((branch, index) => ({
+      key: `branch-${index}`,
+      depth: branch.depth ?? 0,
+      markup: `<path d="${branch.path}" fill="none" stroke="${branch.color}" stroke-width="${branch.width.toFixed(2)}" stroke-linecap="round" opacity="${branch.opacity.toFixed(2)}" />`,
+    })),
+    ...leaves.map((leaf, index) => ({
+      key: `leaf-${index}`,
+      depth: leaf.depth ?? 0,
+      markup: `
+        <g>
+          <path d="${leaf.path}" fill="${leaf.color}" opacity="${leaf.opacity.toFixed(2)}" />
+          <path d="${leaf.veinPath}" fill="none" stroke="${palette.haze}" stroke-width="1.1" opacity="${(leaf.opacity * 0.7).toFixed(2)}" />
+        </g>
+      `,
+    })),
+    ...sprigs.map((sprig, index) => ({
+      key: `sprig-${index}`,
+      depth: sprig.depth ?? 0,
+      markup: renderSprig(sprig),
+    })),
+    ...miniBlooms.map((miniBloom, index) => ({
+      key: `mini-${index}`,
+      depth: miniBloom.depth ?? 40,
+      markup: renderMiniBloom(miniBloom),
+    })),
+    ...blooms.map((bloom, index) => ({
+      key: `bloom-${index}`,
+      depth: bloom.depth ?? 100,
+      markup: renderBloom(bloom, palette),
+    })),
+    ...buds.map((bud, index) => ({
+      key: `bud-${index}`,
+      depth: bud.depth ?? 110,
+      markup: renderBud(bud, palette),
+    })),
+    ...floatingPetals.map((petal, index) => ({
+      key: `petal-${index}`,
+      depth: petal.depth ?? 160,
+      markup: renderFloatingPetal(petal),
+    })),
+  ]
+    .sort((left, right) => left.depth - right.depth)
+    .map((item) => item.markup)
+    .join("");
+
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${frame.width} ${frame.height}" width="${frame.width}" height="${frame.height}" aria-label="Ornate floral artwork">
+      <defs>
+        <linearGradient id="paper" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${palette.background[0]}" />
+          <stop offset="48%" stop-color="${palette.background[1]}" />
+          <stop offset="100%" stop-color="${palette.background[2]}" />
+        </linearGradient>
+        <radialGradient id="sunwash" cx="26%" cy="18%" r="70%">
+          <stop offset="0%" stop-color="${palette.haze}" stop-opacity="0.94" />
+          <stop offset="100%" stop-color="${palette.background[0]}" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+          <stop offset="72%" stop-color="#000000" stop-opacity="0" />
+          <stop offset="100%" stop-color="#4b3a3d" stop-opacity="0.12" />
+        </radialGradient>
+        <filter id="softBlur">
+          <feGaussianBlur stdDeviation="16" />
+        </filter>
+        <filter id="washBlur">
+          <feGaussianBlur stdDeviation="22" />
+        </filter>
+        <filter id="veilBlur">
+          <feGaussianBlur stdDeviation="34" />
+        </filter>
+        <filter id="shadowBlur">
+          <feGaussianBlur stdDeviation="12" />
+        </filter>
+        <filter id="paperGrain" x="-10%" y="-10%" width="120%" height="120%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="2" seed="${grainSeed}" result="noise" />
+          <feColorMatrix
+            in="noise"
+            type="matrix"
+            values="1 0 0 0 0
+                    0 1 0 0 0
+                    0 0 1 0 0
+                    0 0 0 0.08 0"
+          />
+        </filter>
+        ${[5, 8, 11, 14, 18, 22]
+          .map(
+            (blur) =>
+              `<filter id="petalBlur-${blur}"><feGaussianBlur stdDeviation="${(
+                blur / 10
+              ).toFixed(1)}" /></filter>`,
+          )
+          .join("")}
+      </defs>
+
+      <rect width="${frame.width}" height="${frame.height}" rx="42" fill="url(#paper)" />
+      <rect width="${frame.width}" height="${frame.height}" rx="42" fill="${palette.haze}" opacity="0.24" filter="url(#paperGrain)" />
+      <rect x="30" y="34" width="${frame.width - 60}" height="${frame.height - 68}" rx="34" fill="none" stroke="${palette.metal}" stroke-opacity="0.36" stroke-width="1.2" />
+      <rect x="48" y="52" width="${frame.width - 96}" height="${frame.height - 104}" rx="30" fill="rgba(255,255,255,0.22)" stroke="rgba(255,255,255,0.74)" />
+      <rect x="62" y="66" width="${frame.width - 124}" height="${frame.height - 132}" rx="24" fill="none" stroke="${palette.metal}" stroke-opacity="0.22" />
+      <ellipse cx="180" cy="172" rx="248" ry="176" fill="url(#sunwash)" opacity="0.92" />
+      <rect width="${frame.width}" height="${frame.height}" rx="42" fill="url(#vignette)" />
+
+      <g opacity="0.38">
+        <path d="M 86 96 Q 132 74 178 96" fill="none" stroke="${palette.metal}" stroke-width="1.1" />
+        <path d="M 582 96 Q 628 74 674 96" fill="none" stroke="${palette.metal}" stroke-width="1.1" />
+        <path d="M 86 864 Q 132 886 178 864" fill="none" stroke="${palette.metal}" stroke-width="1.1" />
+        <path d="M 582 864 Q 628 886 674 864" fill="none" stroke="${palette.metal}" stroke-width="1.1" />
+        <circle cx="92" cy="102" r="4" fill="${palette.metal}" />
+        <circle cx="668" cy="102" r="4" fill="${palette.metal}" />
+        <circle cx="92" cy="858" r="4" fill="${palette.metal}" />
+        <circle cx="668" cy="858" r="4" fill="${palette.metal}" />
+      </g>
+
+      <g opacity="0.18">
+        <path d="M 172 126 Q 380 72 588 126" fill="none" stroke="${palette.metal}" stroke-width="0.9" />
+        <path d="M 196 830 Q 380 884 564 830" fill="none" stroke="${palette.metal}" stroke-width="0.9" />
+        <path d="M 134 190 Q 110 478 134 766" fill="none" stroke="${palette.metal}" stroke-width="0.8" />
+        <path d="M 626 190 Q 650 478 626 766" fill="none" stroke="${palette.metal}" stroke-width="0.8" />
+      </g>
+
+      ${renderables}
+
+      <g opacity="0.92">
+        <path d="M 334 742 C 356 718 404 718 426 742 C 406 758 354 758 334 742 Z" fill="${palette.bloom[1]}" opacity="0.74" />
+        <path d="M 354 742 C 330 708 330 678 350 654 C 382 682 390 718 382 748 Z" fill="${palette.bloom[2]}" opacity="0.62" />
+        <path d="M 406 742 C 432 708 432 678 410 654 C 380 684 370 720 378 748 Z" fill="${palette.bloom[0]}" opacity="0.62" />
+        <path d="M 350 744 C 384 732 392 732 426 744" fill="none" stroke="${palette.metal}" stroke-opacity="0.42" stroke-width="1.3" />
+        <circle cx="380" cy="742" r="7" fill="${palette.metal}" opacity="0.68" />
+        <path d="M 380 749 Q 356 806 340 860" fill="none" stroke="${palette.metal}" stroke-opacity="0.22" stroke-width="1.1" />
+        <path d="M 380 749 Q 404 806 420 860" fill="none" stroke="${palette.metal}" stroke-opacity="0.22" stroke-width="1.1" />
+        <circle cx="340" cy="860" r="3.8" fill="${palette.metal}" opacity="0.36" />
+        <circle cx="420" cy="860" r="3.8" fill="${palette.metal}" opacity="0.36" />
+      </g>
+    </svg>
+  `;
+}
+
+export function ArtworkCard({ artwork, artKey }) {
+  const markup = buildMarkup(artwork);
+  return (
+    <div className="art-frame">
+      <div
+        className="art-svg"
+        key={artKey}
+        dangerouslySetInnerHTML={{ __html: markup }}
+      />
+    </div>
+  );
+}
+
+export function getArtworkMarkup(artwork) {
+  return buildMarkup(artwork);
+}
