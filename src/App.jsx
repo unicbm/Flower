@@ -158,11 +158,22 @@ export default function App() {
 
   async function handleCopyLink() {
     try {
-      await navigator.clipboard.writeText(shareLink);
+      const serialized = await serializeArtworkState({ seed, controls });
+      const shareUrl = new URL(window.location.href);
+      shareUrl.searchParams.set("f", serialized);
+      const nextLink = shareUrl.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}?f=${serialized}`);
+      setShareLink(nextLink);
+      await navigator.clipboard.writeText(nextLink);
       setIsExportOpen(false);
       setStatus("Link copied");
     } catch {
-      setStatus("Copy failed. Please use the address bar.");
+      try {
+        await navigator.clipboard.writeText(shareLink || window.location.href);
+        setStatus("Link copied");
+      } catch {
+        setStatus("Copy failed. Please use the address bar.");
+      }
     }
   }
 
