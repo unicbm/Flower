@@ -1,0 +1,55 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="petalPink" x1="67" y1="50" x2="184" y2="202" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4CEC9"/>
+      <stop offset="1" stop-color="#D79DA5"/>
+    </linearGradient>
+    <linearGradient id="petalRose" x1="74" y1="63" x2="193" y2="181" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAB9BE"/>
+      <stop offset="1" stop-color="#BC7886"/>
+    </linearGradient>
+    <linearGradient id="leafGreen" x1="82" y1="146" x2="179" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#AFC2A0"/>
+      <stop offset="1" stop-color="#738A6E"/>
+    </linearGradient>
+    <radialGradient id="paperGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(128 118) rotate(90) scale(114)">
+      <stop offset="0" stop-color="#FFFDF9"/>
+      <stop offset="1" stop-color="#F2E8DE"/>
+    </radialGradient>
+  </defs>
+  <rect x="18" y="18" width="220" height="220" rx="58" fill="url(#paperGlow)"/>
+  <rect x="18" y="18" width="220" height="220" rx="58" stroke="#D4BEA6" stroke-opacity="0.85" stroke-width="3"/>
+  <rect x="34" y="34" width="188" height="188" rx="44" stroke="#F8F4EF" stroke-opacity="0.9" stroke-width="2"/>
+  <g opacity="0.2">
+    <path d="M52 62C68 49 90 49 106 62" stroke="#CBAA83" stroke-width="2" stroke-linecap="round"/>
+    <path d="M150 62C166 49 188 49 204 62" stroke="#CBAA83" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g>
+    <path d="M126 197C107 170 106 136 118 110C135 127 144 161 140 201" fill="url(#leafGreen)"/>
+    <path d="M130 195C154 172 163 140 157 112C138 126 126 158 126 197Z" fill="#89A081" fill-opacity="0.9"/>
+    <path d="M128 206C128 163 128 130 131 90" stroke="#738A6E" stroke-width="5" stroke-linecap="round"/>
+    <path d="M100 183C92 154 101 131 120 116" stroke="#7C9375" stroke-width="4" stroke-linecap="round"/>
+    <path d="M157 177C169 154 168 128 152 111" stroke="#7C9375" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(128 114)">
+    <path d="M0 -61C16 -44 17 -18 0 0C-17 -18 -16 -44 0 -61Z" fill="url(#petalPink)"/>
+    <path d="M43 -43C45 -18 28 -1 0 0C1 -27 18 -45 43 -43Z" fill="url(#petalRose)"/>
+    <path d="M61 0C44 16 18 17 0 0C18 -17 44 -16 61 0Z" fill="url(#petalPink)"/>
+    <path d="M43 43C18 45 1 28 0 0C27 1 45 18 43 43Z" fill="url(#petalRose)"/>
+    <path d="M0 61C-16 44 -17 18 0 0C17 18 16 44 0 61Z" fill="url(#petalPink)"/>
+    <path d="M-43 43C-45 18 -28 1 0 0C-1 27 -18 45 -43 43Z" fill="url(#petalRose)"/>
+    <path d="M-61 0C-44 -16 -18 -17 0 0C-18 17 -44 16 -61 0Z" fill="url(#petalPink)"/>
+    <path d="M-43 -43C-18 -45 -1 -28 0 0C-27 -1 -45 -18 -43 -43Z" fill="url(#petalRose)"/>
+    <circle r="21" fill="#E9C067"/>
+    <circle r="20" stroke="#D39A44" stroke-width="2"/>
+    <g fill="#8E5D2E">
+      <circle cx="-8" cy="-10" r="3.8"/>
+      <circle cx="3" cy="-13" r="3.2"/>
+      <circle cx="11" cy="-4" r="3.5"/>
+      <circle cx="-13" cy="2" r="3.3"/>
+      <circle cx="-4" cy="10" r="3.1"/>
+      <circle cx="8" cy="9" r="3.7"/>
+      <circle cx="0" cy="0" r="3.6"/>
+    </g>
+  </g>
+</svg>

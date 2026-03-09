@@ -228,8 +228,17 @@ export default function App() {
       <main className="gallery-shell">
         <header className="topbar motion-rise">
           <div className="brand-lockup">
-            <p className="eyebrow">Floral Letter Studio</p>
-            <h1>Bouquet Generator</h1>
+            <img
+              className="brand-logo"
+              src="/flower-randomizer-logo.svg"
+              alt="Flower Randomizer logo"
+              width="64"
+              height="64"
+            />
+            <div className="brand-copy">
+              <p className="eyebrow">Floral Letter Studio</p>
+              <h1>Flower Randomizer</h1>
+            </div>
           </div>
         </header>
 
