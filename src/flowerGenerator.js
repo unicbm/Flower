@@ -55,6 +55,12 @@ function mapLocalPoint(cx, cy, point, angle) {
   };
 }
 
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+
+function lerp(min, max, ratio) {
+  return min + (max - min) * ratio;
+}
+
 function createPetalPath(centerX, centerY, innerRadius, outerRadius, angle, spread, pull = 0.82) {
   const tip = polar(centerX, centerY, outerRadius, angle);
   const left = polar(centerX, centerY, innerRadius, angle - spread);
@@ -67,6 +73,96 @@ function createPetalPath(centerX, centerY, innerRadius, outerRadius, angle, spre
     `Q ${rightCtrl.x.toFixed(2)} ${rightCtrl.y.toFixed(2)} ${right.x.toFixed(2)} ${right.y.toFixed(2)}`,
     "Z",
   ].join(" ");
+}
+
+function createOrganicPetalGeometry(baseX, baseY, length, baseWidth, shoulderWidth, angle, options = {}) {
+  const {
+    lean = 0,
+    pinch = 0.22,
+    waist = 0.34,
+    asymmetry = 0,
+    curl = 0,
+    droop = 0,
+  } = options;
+
+  const leftBase = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: -baseWidth * (0.52 + asymmetry * 0.06), y: 0 },
+    angle,
+  );
+  const leftShoulder = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: -shoulderWidth * (0.98 + asymmetry * 0.14), y: -length * (waist + curl * 0.02) },
+    angle,
+  );
+  const leftMid = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: -shoulderWidth * (0.56 + asymmetry * 0.08), y: -length * (0.78 + curl * 0.05) },
+    angle,
+  );
+  const tip = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: lean * length * 0.16, y: -length * (1 - droop * 0.04) },
+    angle,
+  );
+  const rightMid = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: shoulderWidth * (0.52 - asymmetry * 0.04), y: -length * (0.76 - curl * 0.04) },
+    angle,
+  );
+  const rightShoulder = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: shoulderWidth * (0.94 - asymmetry * 0.10), y: -length * (waist - droop * 0.02) },
+    angle,
+  );
+  const rightBase = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: baseWidth * (0.48 - asymmetry * 0.04), y: 0 },
+    angle,
+  );
+  const notch = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: lean * baseWidth * 0.10, y: baseWidth * pinch * 0.22 },
+    angle,
+  );
+
+  const ridgeStart = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: lean * baseWidth * 0.05, y: baseWidth * 0.06 },
+    angle,
+  );
+  const ridgeControl = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: lean * length * 0.08, y: -length * 0.54 },
+    angle,
+  );
+  const ridgeEnd = mapLocalPoint(
+    baseX,
+    baseY,
+    { x: lean * length * 0.14, y: -length * 0.92 },
+    angle,
+  );
+
+  return {
+    path: [
+      `M ${leftBase.x.toFixed(2)} ${leftBase.y.toFixed(2)}`,
+      `C ${leftShoulder.x.toFixed(2)} ${leftShoulder.y.toFixed(2)} ${leftMid.x.toFixed(2)} ${leftMid.y.toFixed(2)} ${tip.x.toFixed(2)} ${tip.y.toFixed(2)}`,
+      `C ${rightMid.x.toFixed(2)} ${rightMid.y.toFixed(2)} ${rightShoulder.x.toFixed(2)} ${rightShoulder.y.toFixed(2)} ${rightBase.x.toFixed(2)} ${rightBase.y.toFixed(2)}`,
+      `Q ${notch.x.toFixed(2)} ${notch.y.toFixed(2)} ${leftBase.x.toFixed(2)} ${leftBase.y.toFixed(2)}`,
+      "Z",
+    ].join(" "),
+    ridgePath: `M ${ridgeStart.x.toFixed(2)} ${ridgeStart.y.toFixed(2)} Q ${ridgeControl.x.toFixed(2)} ${ridgeControl.y.toFixed(2)} ${ridgeEnd.x.toFixed(2)} ${ridgeEnd.y.toFixed(2)}`,
+  };
 }
 
 function createLeafPath(startX, startY, length, width, bend, tilt) {
@@ -241,51 +337,130 @@ function createPeonyBloom(random, palette, x, y, controls, sizeFactor = 1) {
   const density = controls.density ?? 0.68;
   const bloomSize = controls.bloomSize ?? 0.74;
   const scale = sizeFactor * (0.9 + bloomSize * 0.62);
-  const layers = 6 + Math.round(density * 3);
   const shapes = [];
-  const darkBias = mixHex(palette.accent, "#2b1d22", 0.45);
+  const highlights = [];
+  const darkBias = mixHex(palette.accent, "#26181f", 0.54);
 
-  for (let layerIndex = 0; layerIndex < layers; layerIndex += 1) {
-    const petalCount = 8 + layerIndex * 3 + Math.floor(random() * 2);
-    const outerRadius = (28 + layerIndex * 11) * scale;
-    const innerRadius = (9 + layerIndex * 4.2) * scale;
-    const spread = 0.16 + layerIndex * 0.014;
+  const outerLayers = 4 + Math.round(density * 2);
+  for (let layerIndex = 0; layerIndex < outerLayers; layerIndex += 1) {
+    const layerRatio = outerLayers === 1 ? 1 : layerIndex / (outerLayers - 1);
+    const petalCount = 7 + layerIndex * 3 + Math.floor(random() * 2);
+    const anchorRadius = lerp(18, 64, layerRatio) * scale;
+    const length = lerp(52, 112, layerRatio) * scale;
+    const baseWidth = lerp(12, 20, layerRatio) * scale;
+    const shoulderWidth = lerp(18, 30, layerRatio) * scale;
+
     for (let petalIndex = 0; petalIndex < petalCount; petalIndex += 1) {
       const angle =
         (Math.PI * 2 * petalIndex) / petalCount +
-        rangeRandom(random, -0.14, 0.14);
+        (layerIndex % 2 === 0 ? 0 : Math.PI / petalCount) +
+        rangeRandom(random, -0.08, 0.08);
+      const base = polar(x, y, anchorRadius, angle);
+      const geometry = createOrganicPetalGeometry(
+        base.x,
+        base.y,
+        length * rangeRandom(random, 0.92, 1.12),
+        baseWidth * rangeRandom(random, 0.92, 1.08),
+        shoulderWidth * rangeRandom(random, 0.92, 1.12),
+        angle + rangeRandom(random, -0.32, 0.32),
+        {
+          lean: rangeRandom(random, -0.18, 0.18),
+          pinch: rangeRandom(random, 0.14, 0.24),
+          waist: rangeRandom(random, 0.28, 0.42),
+          asymmetry: rangeRandom(random, -0.2, 0.24),
+          curl: rangeRandom(random, -0.1, 0.28),
+          droop: rangeRandom(random, 0, 0.24),
+        },
+      );
       const fillBase = sample(random, palette.bloom);
-      const fill = mixHex(fillBase, darkBias, rangeRandom(random, 0.06, 0.22));
+      const fill = mixHex(fillBase, darkBias, rangeRandom(random, 0.06, 0.24));
       shapes.push({
-        path: createPetalPath(
-          x,
-          y,
-          innerRadius,
-          outerRadius,
-          angle,
-          spread + rangeRandom(random, -0.04, 0.06),
-          rangeRandom(random, 0.74, 0.92),
-        ),
+        path: geometry.path,
         fill,
-        opacity: rangeRandom(random, 0.24, 0.56),
-        blur: rangeRandom(random, 1.1, 2.8),
-        stroke: mixHex(fill, darkBias, 0.34),
-        strokeOpacity: rangeRandom(random, 0.06, 0.14),
+        opacity: lerp(0.42, 0.24, layerRatio) * rangeRandom(random, 0.88, 1.12),
+        blur: lerp(0.8, 2.4, layerRatio),
+        stroke: mixHex(fill, darkBias, 0.28),
+        strokeOpacity: rangeRandom(random, 0.04, 0.14),
         strokeWidth: 0.8,
       });
+      if (random() < 0.58) {
+        highlights.push({
+          path: geometry.ridgePath,
+          stroke: mixHex(palette.haze, fillBase, 0.08),
+          opacity: rangeRandom(random, 0.06, 0.14),
+          strokeWidth: rangeRandom(random, 0.7, 1.05),
+        });
+      }
     }
   }
 
-  const stamens = Array.from({ length: 12 + Math.round(density * 10) }, () => {
+  const innerPetalDefs = [];
+  const innerPetalCount = 30 + Math.round(density * 26);
+  for (let index = 0; index < innerPetalCount; index += 1) {
+    const ratio = innerPetalCount === 1 ? 0 : index / (innerPetalCount - 1);
+    const spiralAngle = index * GOLDEN_ANGLE * 0.88 + rangeRandom(random, -0.14, 0.14);
+    const anchorRadius = (8 + Math.pow(ratio, 0.76) * 34) * scale;
+    const base = polar(x, y, anchorRadius, spiralAngle);
+    const geometry = createOrganicPetalGeometry(
+      base.x,
+      base.y,
+      lerp(18, 54, ratio) * scale * rangeRandom(random, 0.92, 1.06),
+      lerp(5.5, 14.5, ratio) * scale,
+      lerp(9, 22, ratio) * scale,
+      spiralAngle + Math.PI / 2 + rangeRandom(random, -0.32, 0.32),
+      {
+        lean: rangeRandom(random, -0.12, 0.18),
+        pinch: rangeRandom(random, 0.12, 0.22),
+        waist: rangeRandom(random, 0.34, 0.48),
+        asymmetry: rangeRandom(random, -0.18, 0.22),
+        curl: rangeRandom(random, -0.08, 0.26),
+        droop: rangeRandom(random, 0, 0.18),
+      },
+    );
+    const fillBase = sample(random, palette.bloom);
+    const fill = mixHex(fillBase, darkBias, rangeRandom(random, 0.10, 0.26));
+    innerPetalDefs.push({
+      order: anchorRadius + ratio * 4,
+      shape: {
+        path: geometry.path,
+        fill,
+        opacity: lerp(0.66, 0.38, ratio) * rangeRandom(random, 0.9, 1.08),
+        blur: lerp(0.4, 1.3, ratio),
+        stroke: mixHex(fill, darkBias, 0.26),
+        strokeOpacity: rangeRandom(random, 0.04, 0.1),
+        strokeWidth: 0.7,
+      },
+      highlight:
+        random() < 0.68
+          ? {
+              path: geometry.ridgePath,
+              stroke: mixHex(palette.haze, fillBase, 0.1),
+              opacity: rangeRandom(random, 0.08, 0.16),
+              strokeWidth: rangeRandom(random, 0.65, 0.95),
+            }
+          : null,
+    });
+  }
+
+  innerPetalDefs
+    .sort((left, right) => right.order - left.order)
+    .forEach((item) => {
+      shapes.push(item.shape);
+      if (item.highlight) {
+        highlights.push(item.highlight);
+      }
+    });
+
+  const stamens = Array.from({ length: 18 + Math.round(density * 12) }, () => {
     const angle = rangeRandom(random, 0, Math.PI * 2);
-    const length = rangeRandom(random, 18, 34) * scale;
-    const stamen = createStamen(x, y, 12 * scale, angle, length);
+    const length = rangeRandom(random, 16, 30) * scale;
+    const stamen = createStamen(x, y, 10 * scale, angle, length);
     return {
       path: stamen.path,
       x: stamen.tip.x,
       y: stamen.tip.y,
-      radius: rangeRandom(random, 1.2, 2.6),
-      opacity: rangeRandom(random, 0.34, 0.76),
+      radius: rangeRandom(random, 1.1, 2.4),
+      opacity: rangeRandom(random, 0.34, 0.74),
       fill: sample(random, [palette.metal, palette.accent, ...palette.bloom]),
     };
   });
@@ -294,30 +469,44 @@ function createPeonyBloom(random, palette, x, y, controls, sizeFactor = 1) {
     kind: "peony",
     speciesData: {
       silhouette: "ruffled-mass",
-      layerCount: layers,
-      petalStyle: "dense-frill",
+      layerCount: outerLayers + 1,
+      petalStyle: "guard-and-spiral",
     },
     x,
     y,
-    rotation: rangeRandom(random, -20, 18),
-    glow: rangeRandom(random, 64, 96) * scale,
+    rotation: rangeRandom(random, -20, 20),
+    glow: rangeRandom(random, 66, 102) * scale,
     shadow: {
-      rx: 62 * scale,
-      ry: 24 * scale,
+      rx: 64 * scale,
+      ry: 26 * scale,
       offsetY: 18 * scale,
       fill: darkBias,
       opacity: 0.1,
     },
-    wash: createWash(random, palette, x + rangeRandom(random, -20, 16), y + rangeRandom(random, -12, 12), 0.9 * scale),
-    pigmentPools: createPigmentPools(random, palette, x, y, 6, 36 * scale, darkBias),
+    wash: createWash(
+      random,
+      palette,
+      x + rangeRandom(random, -18, 18),
+      y + rangeRandom(random, -12, 12),
+      0.92 * scale,
+    ),
+    pigmentPools: createPigmentPools(random, palette, x, y, 7, 38 * scale, darkBias),
     shapes,
-    highlights: [],
+    highlights,
     stamens,
     centerDots: createCenterDots(random, palette, x, y, 18 * scale, 34, [palette.metal]),
     coreShape: {
-      path: createPetalPath(x, y, 5 * scale, 18 * scale, rangeRandom(random, 0, Math.PI * 2), 0.9, 0.36),
-      fill: mixHex(palette.metal, palette.accent, 0.25),
-      opacity: 0.3,
+      path: createPetalPath(
+        x,
+        y,
+        4.5 * scale,
+        15 * scale,
+        rangeRandom(random, 0, Math.PI * 2),
+        0.92,
+        0.42,
+      ),
+      fill: mixHex(palette.metal, palette.accent, 0.22),
+      opacity: 0.28,
     },
   };
 }
@@ -328,67 +517,88 @@ function createCamelliaBloom(random, palette, x, y, controls, sizeFactor = 1) {
   const scale = sizeFactor * (0.78 + bloomSize * 0.42);
   const shapes = [];
   const highlights = [];
-  const darkBias = mixHex(palette.accent, "#312126", 0.42);
+  const darkBias = mixHex(palette.accent, "#2c1f26", 0.44);
   const layerDefs = [
-    { petals: 8, radius: 48, inner: 16, spread: 0.3, opacity: [0.34, 0.52] },
-    { petals: 7, radius: 34, inner: 12, spread: 0.34, opacity: [0.38, 0.58] },
-    { petals: 5, radius: 22, inner: 8, spread: 0.38, opacity: [0.42, 0.64] },
+    { petals: 9, anchor: 38, length: 62, baseWidth: 16, shoulderWidth: 28, opacity: [0.38, 0.56] },
+    { petals: 8, anchor: 24, length: 50, baseWidth: 13, shoulderWidth: 23, opacity: [0.44, 0.62] },
+    { petals: 6, anchor: 12, length: 34, baseWidth: 10, shoulderWidth: 16, opacity: [0.52, 0.7] },
   ];
 
-  layerDefs.forEach((layer, index) => {
-    const petalCount = layer.petals + Math.round(density * index);
+  layerDefs.forEach((layer, layerIndex) => {
+    const petalCount = layer.petals + Math.round(density * (layerIndex + 1));
     for (let petalIndex = 0; petalIndex < petalCount; petalIndex += 1) {
       const angle =
         (Math.PI * 2 * petalIndex) / petalCount +
+        (layerIndex % 2 === 0 ? 0 : Math.PI / petalCount) +
         rangeRandom(random, -0.06, 0.06);
+      const base = polar(x, y, layer.anchor * scale, angle);
+      const geometry = createOrganicPetalGeometry(
+        base.x,
+        base.y,
+        layer.length * scale * rangeRandom(random, 0.94, 1.08),
+        layer.baseWidth * scale * rangeRandom(random, 0.92, 1.08),
+        layer.shoulderWidth * scale * rangeRandom(random, 0.94, 1.1),
+        angle + rangeRandom(random, -0.18, 0.18),
+        {
+          lean: rangeRandom(random, -0.08, 0.12),
+          pinch: rangeRandom(random, 0.08, 0.16),
+          waist: rangeRandom(random, 0.3, 0.4),
+          asymmetry: rangeRandom(random, -0.12, 0.14),
+          curl: rangeRandom(random, -0.06, 0.14),
+          droop: rangeRandom(random, 0, 0.12),
+        },
+      );
       const fillBase = sample(random, palette.bloom);
       const fill = mixHex(fillBase, darkBias, rangeRandom(random, 0.04, 0.18));
-      const path = createPetalPath(
-        x,
-        y,
-        layer.inner * scale,
-        layer.radius * scale,
-        angle,
-        layer.spread + rangeRandom(random, -0.03, 0.03),
-        0.7,
-      );
       shapes.push({
-        path,
+        path: geometry.path,
         fill,
         opacity: rangeRandom(random, layer.opacity[0], layer.opacity[1]),
-        blur: rangeRandom(random, 0.5, 1.6),
-        stroke: mixHex(fill, darkBias, 0.3),
-        strokeOpacity: rangeRandom(random, 0.08, 0.16),
-        strokeWidth: 0.9,
+        blur: rangeRandom(random, 0.35, 1.2),
+        stroke: mixHex(fill, darkBias, 0.24),
+        strokeOpacity: rangeRandom(random, 0.06, 0.14),
+        strokeWidth: 0.8,
       });
-      if (index < 2) {
+      if (layerIndex < 2) {
         highlights.push({
-          path,
-          stroke: mixHex(palette.haze, fillBase, 0.12),
+          path: geometry.ridgePath,
+          stroke: mixHex(palette.haze, fillBase, 0.1),
           opacity: rangeRandom(random, 0.08, 0.16),
-          strokeWidth: 1,
+          strokeWidth: rangeRandom(random, 0.75, 1),
         });
       }
     }
   });
 
-  const coreLoops = Array.from({ length: 3 }, (_, index) => ({
-    path: createPetalPath(
+  const corePetals = Array.from({ length: 4 }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / 4 + rangeRandom(random, -0.18, 0.18);
+    const geometry = createOrganicPetalGeometry(
       x,
       y,
-      (5 + index * 2.5) * scale,
-      (12 + index * 5) * scale,
-      rangeRandom(random, 0, Math.PI * 2),
-      0.58,
-      0.52,
-    ),
-    fill: mixHex(sample(random, palette.bloom), darkBias, 0.22),
-    opacity: 0.44 - index * 0.08,
-    blur: 0.4,
-    stroke: mixHex(palette.haze, darkBias, 0.18),
-    strokeOpacity: 0.12,
-    strokeWidth: 0.8,
-  }));
+      (18 + index * 3) * scale,
+      (5 + index) * scale,
+      (8 + index * 1.8) * scale,
+      angle,
+      {
+        lean: rangeRandom(random, -0.08, 0.08),
+        pinch: 0.08,
+        waist: 0.42,
+        asymmetry: rangeRandom(random, -0.08, 0.1),
+        curl: rangeRandom(random, -0.04, 0.08),
+        droop: 0,
+      },
+    );
+    const fill = mixHex(sample(random, palette.bloom), darkBias, 0.22);
+    return {
+      path: geometry.path,
+      fill,
+      opacity: 0.48 - index * 0.06,
+      blur: 0.25,
+      stroke: mixHex(fill, darkBias, 0.22),
+      strokeOpacity: 0.08,
+      strokeWidth: 0.7,
+    };
+  });
 
   return {
     kind: "camellia",
@@ -400,7 +610,7 @@ function createCamelliaBloom(random, palette, x, y, controls, sizeFactor = 1) {
     x,
     y,
     rotation: rangeRandom(random, -14, 16),
-    glow: rangeRandom(random, 46, 70) * scale,
+    glow: rangeRandom(random, 48, 72) * scale,
     shadow: {
       rx: 54 * scale,
       ry: 20 * scale,
@@ -408,16 +618,182 @@ function createCamelliaBloom(random, palette, x, y, controls, sizeFactor = 1) {
       fill: darkBias,
       opacity: 0.08,
     },
-    wash: createWash(random, palette, x + rangeRandom(random, -12, 16), y + rangeRandom(random, -10, 10), 0.72 * scale),
+    wash: createWash(
+      random,
+      palette,
+      x + rangeRandom(random, -12, 16),
+      y + rangeRandom(random, -10, 10),
+      0.72 * scale,
+    ),
     pigmentPools: createPigmentPools(random, palette, x, y, 4, 22 * scale, darkBias),
-    shapes: [...shapes, ...coreLoops],
+    shapes: [...shapes, ...corePetals],
     highlights,
     stamens: [],
     centerDots: createCenterDots(random, palette, x, y, 10 * scale, 12, [palette.metal]),
     coreShape: {
-      path: createPetalPath(x, y, 4 * scale, 10 * scale, rangeRandom(random, 0, Math.PI * 2), 0.78, 0.5),
-      fill: mixHex(palette.haze, palette.accent, 0.3),
-      opacity: 0.28,
+      path: createPetalPath(
+        x,
+        y,
+        4 * scale,
+        10 * scale,
+        rangeRandom(random, 0, Math.PI * 2),
+        0.78,
+        0.5,
+      ),
+      fill: mixHex(palette.haze, palette.accent, 0.28),
+      opacity: 0.24,
+    },
+  };
+}
+
+function createRoseBloom(random, palette, x, y, controls, sizeFactor = 1) {
+  const density = controls.density ?? 0.68;
+  const bloomSize = controls.bloomSize ?? 0.74;
+  const scale = sizeFactor * (0.84 + bloomSize * 0.46);
+  const shapes = [];
+  const highlights = [];
+  const darkBias = mixHex(palette.accent, "#24161d", 0.58);
+
+  const guardPetalCount = 8 + Math.round(density * 4);
+  for (let index = 0; index < guardPetalCount; index += 1) {
+    const angle = (Math.PI * 2 * index) / guardPetalCount + rangeRandom(random, -0.08, 0.08);
+    const base = polar(x, y, 46 * scale, angle);
+    const geometry = createOrganicPetalGeometry(
+      base.x,
+      base.y,
+      rangeRandom(random, 74, 96) * scale,
+      rangeRandom(random, 14, 18) * scale,
+      rangeRandom(random, 24, 32) * scale,
+      angle + rangeRandom(random, -0.24, 0.24),
+      {
+        lean: rangeRandom(random, -0.14, 0.18),
+        pinch: rangeRandom(random, 0.12, 0.18),
+        waist: rangeRandom(random, 0.26, 0.34),
+        asymmetry: rangeRandom(random, -0.18, 0.22),
+        curl: rangeRandom(random, 0.04, 0.28),
+        droop: rangeRandom(random, 0, 0.18),
+      },
+    );
+    const fillBase = sample(random, palette.bloom);
+    const fill = mixHex(fillBase, darkBias, rangeRandom(random, 0.08, 0.22));
+    shapes.push({
+      path: geometry.path,
+      fill,
+      opacity: rangeRandom(random, 0.28, 0.44),
+      blur: rangeRandom(random, 1, 2.1),
+      stroke: mixHex(fill, darkBias, 0.26),
+      strokeOpacity: rangeRandom(random, 0.04, 0.12),
+      strokeWidth: 0.8,
+    });
+    if (random() < 0.64) {
+      highlights.push({
+        path: geometry.ridgePath,
+        stroke: mixHex(palette.haze, fillBase, 0.08),
+        opacity: rangeRandom(random, 0.08, 0.14),
+        strokeWidth: rangeRandom(random, 0.72, 1),
+      });
+    }
+  }
+
+  const spiralPetalDefs = [];
+  const spiralPetalCount = 42 + Math.round(density * 28);
+  for (let index = 0; index < spiralPetalCount; index += 1) {
+    const ratio = spiralPetalCount === 1 ? 0 : index / (spiralPetalCount - 1);
+    const spiralAngle = index * GOLDEN_ANGLE * 0.74 + rangeRandom(random, -0.14, 0.14);
+    const anchorRadius = (6 + Math.pow(ratio, 0.82) * 42) * scale;
+    const base = polar(x, y, anchorRadius, spiralAngle);
+    const geometry = createOrganicPetalGeometry(
+      base.x,
+      base.y,
+      lerp(14, 68, ratio) * scale * rangeRandom(random, 0.94, 1.08),
+      lerp(4.5, 16, ratio) * scale,
+      lerp(8, 24, ratio) * scale,
+      spiralAngle + Math.PI / 2 + rangeRandom(random, -0.24, 0.24),
+      {
+        lean: rangeRandom(random, -0.16, 0.18),
+        pinch: rangeRandom(random, 0.08, 0.18),
+        waist: lerp(0.48, 0.28, ratio),
+        asymmetry: rangeRandom(random, -0.16, 0.2),
+        curl: rangeRandom(random, 0.02, 0.3),
+        droop: rangeRandom(random, 0, 0.12),
+      },
+    );
+    const fillBase = sample(random, palette.bloom);
+    const fill = mixHex(fillBase, darkBias, rangeRandom(random, 0.12, 0.28));
+    spiralPetalDefs.push({
+      order: anchorRadius + ratio * 6,
+      shape: {
+        path: geometry.path,
+        fill,
+        opacity: lerp(0.76, 0.42, ratio) * rangeRandom(random, 0.92, 1.08),
+        blur: lerp(0.25, 1.4, ratio),
+        stroke: mixHex(fill, darkBias, 0.24),
+        strokeOpacity: rangeRandom(random, 0.04, 0.1),
+        strokeWidth: 0.7,
+      },
+      highlight:
+        random() < 0.72
+          ? {
+              path: geometry.ridgePath,
+              stroke: mixHex(palette.haze, fillBase, 0.12),
+              opacity: rangeRandom(random, 0.08, 0.16),
+              strokeWidth: rangeRandom(random, 0.65, 0.95),
+            }
+          : null,
+    });
+  }
+
+  spiralPetalDefs
+    .sort((left, right) => right.order - left.order)
+    .forEach((item) => {
+      shapes.push(item.shape);
+      if (item.highlight) {
+        highlights.push(item.highlight);
+      }
+    });
+
+  return {
+    kind: "rose",
+    speciesData: {
+      silhouette: "spiral-rosette",
+      layerCount: 5,
+      petalStyle: "spiral-cup",
+    },
+    x,
+    y,
+    rotation: rangeRandom(random, -16, 18),
+    glow: rangeRandom(random, 52, 82) * scale,
+    shadow: {
+      rx: 56 * scale,
+      ry: 22 * scale,
+      offsetY: 15 * scale,
+      fill: darkBias,
+      opacity: 0.09,
+    },
+    wash: createWash(
+      random,
+      palette,
+      x + rangeRandom(random, -14, 14),
+      y + rangeRandom(random, -12, 10),
+      0.78 * scale,
+    ),
+    pigmentPools: createPigmentPools(random, palette, x, y, 5, 24 * scale, darkBias),
+    shapes,
+    highlights,
+    stamens: [],
+    centerDots: createCenterDots(random, palette, x, y, 8 * scale, 10, [palette.metal]),
+    coreShape: {
+      path: createPetalPath(
+        x,
+        y,
+        3.5 * scale,
+        9 * scale,
+        rangeRandom(random, 0, Math.PI * 2),
+        0.72,
+        0.58,
+      ),
+      fill: mixHex(palette.metal, palette.accent, 0.24),
+      opacity: 0.22,
     },
   };
 }
@@ -515,7 +891,7 @@ function createOrchidBloom(random, palette, x, y, controls, sizeFactor = 1) {
 }
 
 function createMiniBloom(random, palette, x, y) {
-  const variant = sample(random, ["camellia", "orchid", "wild"]);
+  const variant = sample(random, ["camellia", "orchid", "rose", "wild"]);
   if (variant === "orchid") {
     return {
       x,
@@ -542,18 +918,43 @@ function createMiniBloom(random, palette, x, y) {
   }
 
   const petals = [];
-  const petalCount = variant === "camellia" ? 7 + Math.floor(random() * 2) : 6 + Math.floor(random() * 5);
-  const innerRadius = rangeRandom(random, 5, 10);
-  const outerRadius = rangeRandom(random, 14, 26);
-  const spreadBase = variant === "camellia" ? 0.32 : 0.24;
+  const petalCount =
+    variant === "camellia"
+      ? 7 + Math.floor(random() * 2)
+      : variant === "rose"
+        ? 10 + Math.floor(random() * 4)
+        : 6 + Math.floor(random() * 5);
+
   for (let petalIndex = 0; petalIndex < petalCount; petalIndex += 1) {
-    const angle = (Math.PI * 2 * petalIndex) / petalCount + rangeRandom(random, -0.12, 0.12);
+    const ratio = petalCount === 1 ? 0 : petalIndex / (petalCount - 1);
+    const angle = (Math.PI * 2 * petalIndex) / petalCount + rangeRandom(random, -0.14, 0.14);
+    const anchorRadius = variant === "rose" ? lerp(2, 10, ratio) : lerp(4, 12, ratio);
+    const base = polar(x, y, anchorRadius, angle);
+    const geometry = createOrganicPetalGeometry(
+      base.x,
+      base.y,
+      (variant === "rose" ? lerp(10, 20, ratio) : lerp(12, 18, ratio)) * rangeRandom(random, 0.9, 1.08),
+      (variant === "rose" ? lerp(3.4, 6.2, ratio) : lerp(4.2, 7.4, ratio)),
+      (variant === "rose" ? lerp(5.6, 9.8, ratio) : lerp(7.8, 11.6, ratio)),
+      variant === "rose"
+        ? angle + Math.PI / 2 + rangeRandom(random, -0.28, 0.28)
+        : angle + rangeRandom(random, -0.12, 0.12),
+      {
+        lean: rangeRandom(random, -0.12, 0.12),
+        pinch: variant === "camellia" ? 0.1 : 0.16,
+        waist: variant === "camellia" ? 0.34 : 0.4,
+        asymmetry: rangeRandom(random, -0.12, 0.16),
+        curl: variant === "rose" ? rangeRandom(random, 0.04, 0.18) : rangeRandom(random, -0.04, 0.1),
+        droop: 0,
+      },
+    );
     petals.push({
-      path: createPetalPath(x, y, innerRadius, outerRadius, angle, rangeRandom(random, spreadBase, spreadBase + 0.1), variant === "camellia" ? 0.72 : 0.9),
+      path: geometry.path,
       fill: sample(random, palette.bloom),
-      opacity: rangeRandom(random, 0.28, 0.52),
+      opacity: rangeRandom(random, 0.28, 0.58),
     });
   }
+
   return {
     x,
     y,
@@ -631,18 +1032,28 @@ function createBud(random, palette, startX, startY, endX, endY) {
   const scale = rangeRandom(random, 0.7, 1.15);
   const budCenterX = endX + rangeRandom(random, -6, 8);
   const budCenterY = endY + rangeRandom(random, -6, 6);
+
   const petals = Array.from({ length: 4 }, (_, index) => {
     const angle = -Math.PI / 2 + (index - 1.5) * 0.34 + rangeRandom(random, -0.06, 0.06);
+    const base = polar(budCenterX, budCenterY, 4 * scale, angle);
+    const geometry = createOrganicPetalGeometry(
+      base.x,
+      base.y,
+      rangeRandom(random, 16, 24) * scale,
+      rangeRandom(random, 5.2, 7.4) * scale,
+      rangeRandom(random, 7.4, 10.2) * scale,
+      angle + rangeRandom(random, -0.12, 0.12),
+      {
+        lean: rangeRandom(random, -0.08, 0.08),
+        pinch: 0.18,
+        waist: 0.4,
+        asymmetry: rangeRandom(random, -0.08, 0.1),
+        curl: rangeRandom(random, -0.02, 0.08),
+        droop: 0.04,
+      },
+    );
     return {
-      path: createPetalPath(
-        budCenterX,
-        budCenterY,
-        6 * scale,
-        rangeRandom(random, 18, 28) * scale,
-        angle,
-        rangeRandom(random, 0.18, 0.24),
-        0.9,
-      ),
+      path: geometry.path,
       fill: sample(random, palette.bloom),
       opacity: rangeRandom(random, 0.38, 0.6),
     };
@@ -676,6 +1087,9 @@ function createBloomByKind(random, palette, kind, x, y, controls, sizeFactor) {
   if (kind === "orchid") {
     return createOrchidBloom(random, palette, x, y, controls, sizeFactor);
   }
+  if (kind === "rose") {
+    return createRoseBloom(random, palette, x, y, controls, sizeFactor);
+  }
   return createCamelliaBloom(random, palette, x, y, controls, sizeFactor);
 }
 
@@ -707,7 +1121,28 @@ export function generateArtwork(seed, controls) {
   const bouquetLeft = 124;
   const bouquetRight = 648;
   const bouquetWidth = bouquetRight - bouquetLeft;
-  const bouquetKinds = ["camellia", "orchid", "peony", "peony", "camellia", "orchid", "peony", "camellia"];
+  const dominantKind = sample(random, ["peony", "camellia", "rose"]);
+  const supportKind = sample(
+    random,
+    ["peony", "camellia", "rose"].filter((kind) => kind !== dominantKind),
+  );
+  const focalKind = sample(random, [dominantKind, dominantKind, "peony", "rose"]);
+  const bouquetKinds = Array.from({ length: bloomCount }, (_, index) => {
+    const ratio = bloomCount === 1 ? 0.5 : index / (bloomCount - 1);
+    const normalized = ratio * 2 - 1;
+    const edgeDistance = Math.abs(normalized);
+
+    if (edgeDistance < 0.18) {
+      return focalKind;
+    }
+    if (edgeDistance > 0.74) {
+      return sample(random, ["orchid", supportKind, "camellia"]);
+    }
+    if (edgeDistance > 0.42) {
+      return sample(random, [dominantKind, supportKind, supportKind, "camellia"]);
+    }
+    return sample(random, [dominantKind, dominantKind, supportKind, focalKind]);
+  });
 
   atmosphereVeils.push({ ...createVeil(random, palette, 188, 212, 1.24), depth: -272 });
   atmosphereVeils.push({ ...createVeil(random, palette, 594, 248, 1.16), depth: -270 });
@@ -768,22 +1203,37 @@ export function generateArtwork(seed, controls) {
   for (let index = 0; index < bloomCount; index += 1) {
     const ratio = bloomCount === 1 ? 0.5 : index / (bloomCount - 1);
     const normalized = ratio * 2 - 1;
-    const kind = bouquetKinds[index % bouquetKinds.length];
-    const anchorX = bouquetLeft + bouquetWidth * ratio + rangeRandom(random, -26, 26);
-    const anchorY = 770 + rangeRandom(random, -24, 34);
-    const bloomX = canvasWidth * 0.52 + normalized * 188 + rangeRandom(random, -30, 30);
-    const bloomY = 250 + Math.abs(normalized) * 102 + rangeRandom(random, -32, 72);
-    const stemCurve = rangeRandom(random, -0.28, 0.36) - normalized * 0.08;
+    const kind = bouquetKinds[index];
+    const anchorX = bouquetLeft + bouquetWidth * ratio + rangeRandom(random, -28, 28);
+    const anchorY = 772 + rangeRandom(random, -24, 36);
+    const crownLift = (1 - normalized * normalized) * rangeRandom(random, 34, 88);
+    const bloomSpread = rangeRandom(random, 154, 206);
+    const bloomX =
+      canvasWidth * 0.5 +
+      normalized * bloomSpread +
+      Math.sin(ratio * Math.PI * rangeRandom(random, 0.9, 1.4)) * rangeRandom(random, 8, 24) +
+      rangeRandom(random, -24, 24);
+    const bloomY =
+      302 +
+      Math.abs(normalized) * rangeRandom(random, 46, 128) -
+      crownLift +
+      rangeRandom(random, -24, 56);
+    const stemCurve = rangeRandom(random, -0.36, 0.42) - normalized * 0.1;
     const stemMidX = anchorX + (bloomX - anchorX) * 0.46 + stemCurve * 160;
     const stemMidY = anchorY - (anchorY - bloomY) * 0.54;
     const depth =
       100 +
-      Math.round((1 - Math.abs(normalized)) * 70) +
-      (kind === "peony" ? 24 : kind === "camellia" ? 10 : -6);
+      Math.round((1 - Math.abs(normalized)) * 72) +
+      (kind === "peony" ? 24 : kind === "rose" ? 18 : kind === "camellia" ? 10 : -6);
 
     bouquetPlan.push({
       id: `bloom-${index}`,
-      role: kind === "peony" ? "primary" : kind === "camellia" ? "secondary" : "spray",
+      role:
+        kind === "peony" || kind === "rose"
+          ? "primary"
+          : kind === "camellia"
+            ? "secondary"
+            : "spray",
       kind,
       anchorX,
       anchorY,
@@ -825,7 +1275,13 @@ export function generateArtwork(seed, controls) {
     }
 
     const sizeFactor =
-      kind === "peony" ? rangeRandom(random, 0.96, 1.14) : kind === "orchid" ? rangeRandom(random, 0.82, 0.98) : rangeRandom(random, 0.84, 1.02);
+      kind === "peony"
+        ? rangeRandom(random, 0.98, 1.16)
+        : kind === "rose"
+          ? rangeRandom(random, 0.88, 1.06)
+          : kind === "orchid"
+            ? rangeRandom(random, 0.82, 0.98)
+            : rangeRandom(random, 0.84, 1.02);
     const bloom = createBloomByKind(random, palette, kind, bloomX, bloomY, controls, sizeFactor);
     blooms.push({
       ...bloom,
@@ -841,7 +1297,7 @@ export function generateArtwork(seed, controls) {
         palette,
         bloomX + rangeRandom(random, -24, 24),
         bloomY + rangeRandom(random, -22, 22),
-        kind === "peony" ? 0.72 : 0.56,
+        kind === "peony" ? 0.74 : kind === "rose" ? 0.64 : 0.56,
       ),
       depth: depth - 146,
     });
@@ -854,7 +1310,12 @@ export function generateArtwork(seed, controls) {
       depth: depth - 18,
     });
 
-    const branchCount = kind === "orchid" ? 4 : 2 + Math.round((1 - airy) * 2);
+    const branchCount =
+      kind === "orchid"
+        ? 4
+        : kind === "rose"
+          ? 3 + Math.round((1 - airy) * 2)
+          : 2 + Math.round((1 - airy) * 2);
     for (let branchIndex = 0; branchIndex < branchCount; branchIndex += 1) {
       const branchStartT = rangeRandom(random, 0.34, 0.74);
       const startX = anchorX + (bloomX - anchorX) * branchStartT;
@@ -870,7 +1331,7 @@ export function generateArtwork(seed, controls) {
       });
       buds.push({
         ...createBud(random, palette, startX, startY, endX, endY),
-        depth: depth + (kind === "orchid" ? 10 : -4),
+        depth: depth + (kind === "orchid" ? 10 : kind === "rose" ? 4 : -4),
       });
       tendrils.push({
         ...createTendril(random, palette, endX, endY),
