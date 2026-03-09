@@ -149,6 +149,7 @@ textarea {
   position: relative;
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.55rem;
   padding: 0.45rem;
   border-radius: 999px;
@@ -183,6 +184,27 @@ textarea {
 .tool-button.primary {
   background: rgba(232, 211, 202, 0.54);
   border-color: rgba(144, 118, 110, 0.16);
+}
+
+.tool-button.is-active {
+  background: rgba(144, 118, 110, 0.14);
+  border-color: var(--line-strong);
+  color: #543f3e;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.44);
+  border: 1px solid rgba(145, 116, 107, 0.14);
+}
+
+.mode-button {
+  min-width: 5.8rem;
+  padding-block: 0.72rem;
 }
 
 .export-group {
@@ -301,6 +323,11 @@ textarea {
     padding: 0.4rem;
   }
 
+  .mode-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
   .tool-button {
     min-width: 0;
     padding-inline: 0.95rem;
@@ -349,6 +376,14 @@ textarea {
 
   .tool-button {
     flex: 1 1 calc(50% - 0.4rem);
+  }
+
+  .mode-toggle {
+    flex: 1 1 100%;
+  }
+
+  .mode-button {
+    flex: 1 1 0;
   }
 
   .export-group {

@@ -1093,9 +1093,390 @@ function createBloomByKind(random, palette, kind, x, y, controls, sizeFactor) {
   return createCamelliaBloom(random, palette, x, y, controls, sizeFactor);
 }
 
-export function generateArtwork(seed, controls) {
-  const random = createRandom(`${seed}:${JSON.stringify(controls)}`);
+function createTextureDots(random, canvasWidth, canvasHeight, count = 180) {
+  return Array.from({ length: count }, () => ({
+    x: rangeRandom(random, 0, canvasWidth),
+    y: rangeRandom(random, 0, canvasHeight),
+    radius: rangeRandom(random, 0.5, 1.7),
+    opacity: rangeRandom(random, 0.03, 0.14),
+    depth: -180,
+  }));
+}
+
+function buildRenderOrder(layers) {
+  return [
+    ...layers.atmosphereVeils.map((item, index) => ({ id: `veil-${index}`, depth: item.depth })),
+    ...layers.paperStrokes.map((item, index) => ({ id: `paper-stroke-${index}`, depth: item.depth })),
+    ...layers.washes.map((item) => ({ id: `wash-${item.depth}-${item.x.toFixed(0)}`, depth: item.depth })),
+    ...layers.shadowLeaves.map((item, index) => ({ id: `shadow-leaf-${index}`, depth: item.depth })),
+    ...layers.ornaments.map((item, index) => ({ id: `ornament-${index}`, depth: item.depth })),
+    ...layers.gildedDust.map((item, index) => ({ id: `dust-${index}`, depth: item.depth })),
+    ...layers.tendrils.map((item, index) => ({ id: `tendril-${index}`, depth: item.depth })),
+    ...layers.stems.map((item, index) => ({ id: `stem-${index}`, depth: item.depth })),
+    ...layers.leaves.map((item, index) => ({ id: `leaf-${index}`, depth: item.depth })),
+    ...layers.branchlets.map((item, index) => ({ id: `branch-${index}`, depth: item.depth })),
+    ...layers.sprigs.map((item, index) => ({ id: `sprig-${index}`, depth: item.depth })),
+    ...layers.miniBlooms.map((item, index) => ({ id: `mini-${index}`, depth: item.depth })),
+    ...layers.blooms.map((item, index) => ({ id: `bloom-${index}`, depth: item.depth })),
+    ...layers.buds.map((item, index) => ({ id: `bud-${index}`, depth: item.depth })),
+    ...layers.floatingPetals.map((item, index) => ({ id: `petal-${index}`, depth: item.depth })),
+  ]
+    .sort((left, right) => left.depth - right.depth)
+    .map((item) => item.id);
+}
+
+function generateAbstractArtwork(seed, controls, random, palette, canvasWidth, canvasHeight) {
+  const density = controls.density ?? 0.68;
+  const airy = controls.airy ?? 0.62;
+  const layers = {
+    atmosphereVeils: [],
+    paperStrokes: [],
+    shadowLeaves: [],
+    gildedDust: [],
+    stems: [],
+    branchlets: [],
+    leaves: [],
+    blooms: [],
+    buds: [],
+    miniBlooms: [],
+    floatingPetals: [],
+    washes: [],
+    tendrils: [],
+    ornaments: [],
+    sprigs: [],
+  };
+  const abstractPlan = [];
+  const clusterCount = 3 + Math.round(density * 2);
+  const bloomCount = 11 + Math.round(density * 6);
+  const centerX = canvasWidth * 0.5;
+  const centerY = canvasHeight * 0.5;
+
+  for (let index = 0; index < 7; index += 1) {
+    layers.atmosphereVeils.push({
+      ...createVeil(
+        random,
+        palette,
+        rangeRandom(random, 104, canvasWidth - 104),
+        rangeRandom(random, 128, canvasHeight - 128),
+        rangeRandom(random, 0.92, 1.34),
+      ),
+      depth: -272 + index * 2,
+    });
+  }
+
+  for (let index = 0; index < 6; index += 1) {
+    layers.washes.push({
+      ...createWash(
+        random,
+        palette,
+        rangeRandom(random, 92, canvasWidth - 92),
+        rangeRandom(random, 104, canvasHeight - 104),
+        rangeRandom(random, 0.96, 1.44),
+      ),
+      depth: -240 + index * 2,
+    });
+  }
+
+  for (let index = 0; index < 28; index += 1) {
+    layers.paperStrokes.push({
+      ...createPaperStroke(
+        random,
+        palette,
+        rangeRandom(random, 36, canvasWidth - 36),
+        rangeRandom(random, 42, canvasHeight - 42),
+        rangeRandom(random, 42, 134),
+        rangeRandom(random, 0, Math.PI * 2),
+      ),
+      depth: -226 + (index % 3),
+    });
+  }
+
+  for (let index = 0; index < 12; index += 1) {
+    layers.shadowLeaves.push({
+      ...createShadowLeaf(
+        random,
+        palette,
+        rangeRandom(random, 74, canvasWidth - 74),
+        rangeRandom(random, 112, canvasHeight - 112),
+        rangeRandom(random, 0.76, 1.18),
+      ),
+      depth: -164 + index,
+    });
+  }
+
+  const clusters = Array.from({ length: clusterCount }, (_, index) => {
+    const angle = (Math.PI * 2 * index) / clusterCount + rangeRandom(random, -0.42, 0.42);
+    const orbitX = rangeRandom(random, canvasWidth * 0.12, canvasWidth * 0.24);
+    const orbitY = rangeRandom(random, canvasHeight * 0.12, canvasHeight * 0.28);
+    const dominantKind = sample(random, ["peony", "camellia", "rose"]);
+    const supportKind = sample(
+      random,
+      ["peony", "camellia", "rose", "orchid"].filter((kind) => kind !== dominantKind),
+    );
+    return {
+      id: `cluster-${index}`,
+      x: Math.min(canvasWidth - 118, Math.max(118, centerX + Math.cos(angle) * orbitX)),
+      y: Math.min(canvasHeight - 138, Math.max(138, centerY + Math.sin(angle) * orbitY)),
+      radiusX: rangeRandom(random, 72, 164),
+      radiusY: rangeRandom(random, 86, 178),
+      dominantKind,
+      supportKind,
+    };
+  });
+
+  clusters.forEach((cluster, clusterIndex) => {
+    layers.washes.push({
+      ...createWash(random, palette, cluster.x, cluster.y, rangeRandom(random, 1, 1.46)),
+      depth: -208 + clusterIndex * 4,
+    });
+    layers.atmosphereVeils.push({
+      ...createVeil(random, palette, cluster.x, cluster.y, rangeRandom(random, 0.94, 1.34)),
+      depth: -216 + clusterIndex * 3,
+    });
+    layers.gildedDust.push(
+      ...createDustCluster(
+        random,
+        palette,
+        cluster.x + rangeRandom(random, -24, 24),
+        cluster.y + rangeRandom(random, -24, 24),
+        12 + Math.round(random() * 8),
+        rangeRandom(random, 44, 72),
+      ).map((item, dustIndex) => ({
+        ...item,
+        depth: -96 + clusterIndex * 10 + dustIndex,
+      })),
+    );
+  });
+
+  for (let index = 0; index < bloomCount; index += 1) {
+    const cluster = sample(random, clusters);
+    const localAngle = rangeRandom(random, 0, Math.PI * 2);
+    const distance = Math.sqrt(random());
+    const bloomX = Math.min(
+      canvasWidth - 86,
+      Math.max(86, cluster.x + Math.cos(localAngle) * cluster.radiusX * distance),
+    );
+    const bloomY = Math.min(
+      canvasHeight - 110,
+      Math.max(110, cluster.y + Math.sin(localAngle) * cluster.radiusY * distance),
+    );
+    const proximity = 1 - distance;
+    const kind = sample(random, [
+      cluster.dominantKind,
+      cluster.dominantKind,
+      cluster.supportKind,
+      cluster.supportKind,
+      "rose",
+      "camellia",
+      "orchid",
+    ]);
+    const role = proximity > 0.56 ? "focal" : proximity > 0.28 ? "support" : "accent";
+    const connectorAngle = localAngle + Math.PI + rangeRandom(random, -0.68, 0.68);
+    const anchorX = bloomX + Math.cos(connectorAngle) * rangeRandom(random, 24, 78);
+    const anchorY = bloomY + Math.sin(connectorAngle) * rangeRandom(random, 20, 86);
+    const midX = (anchorX + bloomX) / 2 + rangeRandom(random, -34, 34);
+    const midY = (anchorY + bloomY) / 2 + rangeRandom(random, -34, 34);
+    const depth =
+      42 +
+      Math.round((bloomY / canvasHeight) * 112) +
+      Math.round(proximity * 46) +
+      (kind === "peony" ? 16 : kind === "rose" ? 14 : kind === "camellia" ? 8 : -6);
+    const sizeFactor =
+      kind === "peony"
+        ? lerp(0.8, 1.18, proximity)
+        : kind === "rose"
+          ? lerp(0.72, 1.02, proximity)
+          : kind === "orchid"
+            ? lerp(0.72, 0.96, proximity)
+            : lerp(0.74, 1.04, proximity);
+
+    abstractPlan.push({
+      id: `abstract-bloom-${index}`,
+      role,
+      clusterId: cluster.id,
+      kind,
+      anchorX,
+      anchorY,
+      bloomX,
+      bloomY,
+      depth,
+      ratio: Number(proximity.toFixed(3)),
+    });
+
+    if (random() < 0.82) {
+      layers.stems.push({
+        path: `M ${anchorX.toFixed(2)} ${anchorY.toFixed(2)} Q ${midX.toFixed(2)} ${midY.toFixed(2)} ${bloomX.toFixed(2)} ${bloomY.toFixed(2)}`,
+        width: rangeRandom(random, 1.4, 3.8),
+        color: sample(random, palette.leaves),
+        opacity: rangeRandom(random, 0.34, 0.68),
+        depth: depth - 88,
+      });
+    }
+
+    const leafCount = 1 + Math.round((1 - airy) * 2) + (random() < 0.44 ? 1 : 0);
+    for (let leafIndex = 0; leafIndex < leafCount; leafIndex += 1) {
+      const startT = rangeRandom(random, 0.16, 0.88);
+      const startX = anchorX + (bloomX - anchorX) * startT;
+      const startY = anchorY + (bloomY - anchorY) * startT;
+      const leafShape = createLeafPath(
+        startX,
+        startY,
+        rangeRandom(random, 34, 82),
+        rangeRandom(random, 11, 22),
+        rangeRandom(random, 0.16, 0.42),
+        rangeRandom(random, -Math.PI, Math.PI),
+      );
+      layers.leaves.push({
+        path: leafShape.path,
+        veinPath: leafShape.veinPath,
+        color: sample(random, palette.leaves),
+        opacity: rangeRandom(random, 0.2, 0.44),
+        depth: depth - 34 + leafIndex * 4,
+      });
+    }
+
+    const bloom = createBloomByKind(random, palette, kind, bloomX, bloomY, controls, sizeFactor);
+    layers.blooms.push({ ...bloom, depth });
+    layers.washes.push({ ...bloom.wash, depth: depth - 126 });
+    layers.atmosphereVeils.push({
+      ...createVeil(random, palette, bloomX, bloomY, kind === "peony" ? 0.7 : 0.58),
+      depth: depth - 140,
+    });
+    layers.ornaments.push({
+      ...createOrnamentArc(
+        random,
+        palette,
+        bloomX + rangeRandom(random, -18, 18),
+        bloomY + rangeRandom(random, -18, 18),
+      ),
+      depth: depth - 110,
+    });
+    layers.sprigs.push({
+      ...createSprig(
+        random,
+        palette,
+        bloomX + rangeRandom(random, -26, 26),
+        bloomY + rangeRandom(random, -16, 28),
+      ),
+      depth: depth - 14,
+    });
+
+    const branchCount = 1 + Math.round((1 - airy) * 2) + (kind === "orchid" ? 1 : 0);
+    for (let branchIndex = 0; branchIndex < branchCount; branchIndex += 1) {
+      const branchStartT = rangeRandom(random, 0.14, 0.92);
+      const startX = anchorX + (bloomX - anchorX) * branchStartT;
+      const startY = anchorY + (bloomY - anchorY) * branchStartT;
+      const endAngle = rangeRandom(random, 0, Math.PI * 2);
+      const endX = startX + Math.cos(endAngle) * rangeRandom(random, 34, 112);
+      const endY = startY + Math.sin(endAngle) * rangeRandom(random, 24, 96);
+      layers.branchlets.push({
+        path: `M ${startX.toFixed(2)} ${startY.toFixed(2)} Q ${((startX + endX) / 2 + rangeRandom(random, -18, 18)).toFixed(2)} ${((startY + endY) / 2 + rangeRandom(random, -18, 18)).toFixed(2)} ${endX.toFixed(2)} ${endY.toFixed(2)}`,
+        width: rangeRandom(random, 1.1, 2.1),
+        color: sample(random, palette.leaves),
+        opacity: rangeRandom(random, 0.34, 0.6),
+        depth: depth - 30,
+      });
+      layers.buds.push({
+        ...createBud(random, palette, startX, startY, endX, endY),
+        depth: depth + (kind === "orchid" ? 8 : -6),
+      });
+      layers.tendrils.push({
+        ...createTendril(random, palette, endX, endY),
+        depth: depth - 66,
+      });
+      layers.miniBlooms.push({
+        ...createMiniBloom(
+          random,
+          palette,
+          endX + rangeRandom(random, -18, 18),
+          endY + rangeRandom(random, -18, 18),
+        ),
+        depth: depth - 8,
+      });
+    }
+  }
+
+  const extraMiniBloomCount = 12 + Math.round(density * 8);
+  for (let index = 0; index < extraMiniBloomCount; index += 1) {
+    layers.miniBlooms.push({
+      ...createMiniBloom(
+        random,
+        palette,
+        rangeRandom(random, 96, canvasWidth - 96),
+        rangeRandom(random, 112, canvasHeight - 112),
+      ),
+      depth: 34 + index,
+    });
+  }
+
+  const sprigCount = 14 + Math.round(density * 6);
+  for (let index = 0; index < sprigCount; index += 1) {
+    layers.sprigs.push({
+      ...createSprig(
+        random,
+        palette,
+        rangeRandom(random, 82, canvasWidth - 82),
+        rangeRandom(random, 96, canvasHeight - 96),
+      ),
+      depth: 46 + index,
+    });
+  }
+
+  const ornamentCount = 12 + Math.round((1 - airy) * 5);
+  for (let index = 0; index < ornamentCount; index += 1) {
+    layers.ornaments.push({
+      ...createOrnamentArc(
+        random,
+        palette,
+        rangeRandom(random, 92, canvasWidth - 92),
+        rangeRandom(random, 104, canvasHeight - 104),
+      ),
+      depth: -126 + index,
+    });
+  }
+
+  const petalCount = 22 + Math.round((1 - airy) * 12);
+  for (let index = 0; index < petalCount; index += 1) {
+    layers.floatingPetals.push({
+      x: rangeRandom(random, 74, canvasWidth - 54),
+      y: rangeRandom(random, 84, canvasHeight - 72),
+      width: rangeRandom(random, 12, 34),
+      height: rangeRandom(random, 8, 26),
+      fill: mixHex(sample(random, palette.bloom), palette.accent, rangeRandom(random, 0.08, 0.24)),
+      rotation: rangeRandom(random, 0, 360),
+      opacity: rangeRandom(random, 0.1, 0.24),
+      depth: 160 + index,
+    });
+  }
+
+  return {
+    seed,
+    palette,
+    ...layers,
+    composition: {
+      mode: "abstract",
+      focusX: canvasWidth * 0.5,
+      focusY: canvasHeight * 0.5,
+      plan: abstractPlan,
+      renderOrder: buildRenderOrder(layers),
+    },
+    textureDots: createTextureDots(random, canvasWidth, canvasHeight, 220),
+    frame: {
+      width: canvasWidth,
+      height: canvasHeight,
+    },
+  };
+}
+
+export function generateArtwork(seed, controls, compositionMode = "bouquet") {
+  const mode = compositionMode === "abstract" ? "abstract" : "bouquet";
+  const random = createRandom(`${seed}:${mode}:${JSON.stringify(controls)}`);
   const palette = palettes[Math.floor(random() * palettes.length)];
+  const canvasWidth = 760;
+  const canvasHeight = 960;
+  if (mode === "abstract") {
+    return generateAbstractArtwork(seed, controls, random, palette, canvasWidth, canvasHeight);
+  }
   const atmosphereVeils = [];
   const paperStrokes = [];
   const shadowLeaves = [];
@@ -1113,8 +1494,6 @@ export function generateArtwork(seed, controls) {
   const sprigs = [];
   const bouquetPlan = [];
 
-  const canvasWidth = 760;
-  const canvasHeight = 960;
   const density = controls.density ?? 0.68;
   const airy = controls.airy ?? 0.62;
   const bloomCount = 6 + Math.round(density * 2);
@@ -1408,26 +1787,6 @@ export function generateArtwork(seed, controls) {
     });
   }
 
-  const renderOrder = [
-    ...atmosphereVeils.map((item, index) => ({ id: `veil-${index}`, depth: item.depth })),
-    ...paperStrokes.map((item, index) => ({ id: `paper-stroke-${index}`, depth: item.depth })),
-    ...washes.map((item) => ({ id: `wash-${item.depth}-${item.x.toFixed(0)}`, depth: item.depth })),
-    ...shadowLeaves.map((item, index) => ({ id: `shadow-leaf-${index}`, depth: item.depth })),
-    ...ornaments.map((item, index) => ({ id: `ornament-${index}`, depth: item.depth })),
-    ...gildedDust.map((item, index) => ({ id: `dust-${index}`, depth: item.depth })),
-    ...tendrils.map((item, index) => ({ id: `tendril-${index}`, depth: item.depth })),
-    ...stems.map((item, index) => ({ id: `stem-${index}`, depth: item.depth })),
-    ...leaves.map((item, index) => ({ id: `leaf-${index}`, depth: item.depth })),
-    ...branchlets.map((item, index) => ({ id: `branch-${index}`, depth: item.depth })),
-    ...sprigs.map((item, index) => ({ id: `sprig-${index}`, depth: item.depth })),
-    ...miniBlooms.map((item, index) => ({ id: `mini-${index}`, depth: item.depth })),
-    ...blooms.map((item, index) => ({ id: `bloom-${index}`, depth: item.depth })),
-    ...buds.map((item, index) => ({ id: `bud-${index}`, depth: item.depth })),
-    ...floatingPetals.map((item, index) => ({ id: `petal-${index}`, depth: item.depth })),
-  ]
-    .sort((left, right) => left.depth - right.depth)
-    .map((item) => item.id);
-
   return {
     seed,
     palette,
@@ -1447,18 +1806,29 @@ export function generateArtwork(seed, controls) {
     ornaments,
     sprigs,
     composition: {
+      mode,
       focusX: canvasWidth * 0.52,
       focusY: 338,
       plan: bouquetPlan,
-      renderOrder,
+      renderOrder: buildRenderOrder({
+        atmosphereVeils,
+        paperStrokes,
+        shadowLeaves,
+        gildedDust,
+        stems,
+        branchlets,
+        leaves,
+        blooms,
+        buds,
+        miniBlooms,
+        floatingPetals,
+        washes,
+        tendrils,
+        ornaments,
+        sprigs,
+      }),
     },
-    textureDots: Array.from({ length: 180 }, () => ({
-      x: rangeRandom(random, 0, canvasWidth),
-      y: rangeRandom(random, 0, canvasHeight),
-      radius: rangeRandom(random, 0.5, 1.7),
-      opacity: rangeRandom(random, 0.03, 0.14),
-      depth: -180,
-    })),
+    textureDots: createTextureDots(random, canvasWidth, canvasHeight, 180),
     frame: {
       width: canvasWidth,
       height: canvasHeight,

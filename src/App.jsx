@@ -9,6 +9,11 @@ const defaultControls = {
   airy: 0.62,
   bloomSize: 0.74,
 };
+const defaultCompositionMode = "bouquet";
+
+function sanitizeCompositionMode(value) {
+  return value === "abstract" ? "abstract" : defaultCompositionMode;
+}
 
 function createSeed() {
   const part = () => Math.random().toString(36).slice(2, 6);
@@ -25,6 +30,7 @@ function clamp(value, min, max, fallback) {
 function sanitizeImportedState(value) {
   return {
     seed: typeof value.seed === "string" && value.seed ? value.seed : createSeed(),
+    compositionMode: sanitizeCompositionMode(value.compositionMode),
     controls: {
       density: clamp(value.controls?.density, 0.3, 1, defaultControls.density),
       airy: clamp(value.controls?.airy, 0.3, 1, defaultControls.airy),
@@ -36,6 +42,7 @@ function sanitizeImportedState(value) {
 export default function App() {
   const [seed, setSeed] = useState(createSeed);
   const [controls, setControls] = useState(defaultControls);
+  const [compositionMode, setCompositionMode] = useState(defaultCompositionMode);
   const [status, setStatus] = useState("");
   const [artKey, setArtKey] = useState(0);
   const [isBusy, setIsBusy] = useState(false);
@@ -61,6 +68,7 @@ export default function App() {
       .then((parsed) => {
         const next = sanitizeImportedState(parsed);
         setSeed(next.seed);
+        setCompositionMode(next.compositionMode);
         setControls(next.controls);
         setStatus("Artwork restored");
         setArtKey((value) => value + 1);
@@ -117,7 +125,7 @@ export default function App() {
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
-      serializeArtworkState({ seed, controls })
+      serializeArtworkState({ seed, controls, compositionMode })
         .then((serialized) => {
           if (!active) {
             return;
@@ -137,7 +145,7 @@ export default function App() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [seed, controls]);
+  }, [seed, controls, compositionMode]);
 
   const artwork = useMemo(
     () =>
@@ -145,20 +153,20 @@ export default function App() {
         density: Number(controls.density.toFixed(2)),
         airy: Number(controls.airy.toFixed(2)),
         bloomSize: Number(controls.bloomSize.toFixed(2)),
-      }),
-    [seed, controls],
+      }, compositionMode),
+    [seed, controls, compositionMode],
   );
 
   function handleRandomize() {
     setSeed(createSeed());
     setArtKey((current) => current + 1);
     setIsExportOpen(false);
-    setStatus("New bouquet generated");
+    setStatus(compositionMode === "abstract" ? "New artwork generated" : "New bouquet generated");
   }
 
   async function handleCopyLink() {
     try {
-      const serialized = await serializeArtworkState({ seed, controls });
+      const serialized = await serializeArtworkState({ seed, controls, compositionMode });
       const shareUrl = new URL(window.location.href);
       shareUrl.searchParams.set("f", serialized);
       const nextLink = shareUrl.toString();
@@ -175,6 +183,16 @@ export default function App() {
         setStatus("Copy failed. Please use the address bar.");
       }
     }
+  }
+
+  function handleCompositionModeChange(nextMode) {
+    if (nextMode === compositionMode) {
+      return;
+    }
+    setCompositionMode(nextMode);
+    setArtKey((current) => current + 1);
+    setIsExportOpen(false);
+    setStatus(nextMode === "abstract" ? "Abstract mode enabled" : "Bouquet mode enabled");
   }
 
   async function handleExport(type) {
@@ -221,8 +239,26 @@ export default function App() {
 
         <div className="toolbar-shell motion-rise delay-two">
           <div className="toolbar" ref={exportRef}>
+            <div className="mode-toggle" role="group" aria-label="Composition mode">
+              <button
+                type="button"
+                className={`tool-button mode-button${compositionMode === "bouquet" ? " is-active" : ""}`}
+                aria-pressed={compositionMode === "bouquet"}
+                onClick={() => handleCompositionModeChange("bouquet")}
+              >
+                Bouquet
+              </button>
+              <button
+                type="button"
+                className={`tool-button mode-button${compositionMode === "abstract" ? " is-active" : ""}`}
+                aria-pressed={compositionMode === "abstract"}
+                onClick={() => handleCompositionModeChange("abstract")}
+              >
+                Abstract
+              </button>
+            </div>
             <button type="button" className="tool-button primary" onClick={handleRandomize}>
-              New Bouquet
+              {compositionMode === "abstract" ? "New Artwork" : "New Bouquet"}
             </button>
             <button type="button" className="tool-button" onClick={handleCopyLink}>
               Copy Link
