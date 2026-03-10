@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { ArtworkCard, getArtworkMarkup } from "./ArtworkCard.jsx";
 import { createMelodyPlayer } from "./audioPlayback.js";
 import { downloadPng, downloadSvg } from "./exportArtwork.js";
 import { generateArtwork } from "./flowerGenerator.js";
 import { generateMelody } from "./musicGenerator.js";
 import { parseArtworkState, serializeArtworkState } from "./shareState.js";
+import { generateArtwork3D } from "./threeDGenerator.js";
 
 const defaultControls = {
   density: 0.68,
@@ -12,9 +13,12 @@ const defaultControls = {
   bloomSize: 0.74,
 };
 const defaultCompositionMode = "bouquet";
+const ThreeDArtworkCard = lazy(() =>
+  import("./ThreeDArtworkCard.jsx").then((module) => ({ default: module.ThreeDArtworkCard })),
+);
 
 function sanitizeCompositionMode(value) {
-  return value === "abstract" ? "abstract" : defaultCompositionMode;
+  return value === "abstract" || value === "3d" ? value : defaultCompositionMode;
 }
 
 function createSeed() {
@@ -56,6 +60,16 @@ export default function App() {
   const hydrateOnce = useRef(false);
   const exportRef = useRef(null);
   const melodyPlayerRef = useRef(null);
+  const isThreeDMode = compositionMode === "3d";
+
+  const normalizedControls = useMemo(
+    () => ({
+      density: Number(controls.density.toFixed(2)),
+      airy: Number(controls.airy.toFixed(2)),
+      bloomSize: Number(controls.bloomSize.toFixed(2)),
+    }),
+    [controls],
+  );
 
   useEffect(() => {
     if (hydrateOnce.current) {
@@ -152,27 +166,25 @@ export default function App() {
   }, [seed, controls, compositionMode]);
 
   const artwork = useMemo(
-    () =>
-      generateArtwork(seed, {
-        density: Number(controls.density.toFixed(2)),
-        airy: Number(controls.airy.toFixed(2)),
-        bloomSize: Number(controls.bloomSize.toFixed(2)),
-      }, compositionMode),
-    [seed, controls, compositionMode],
+    () => (isThreeDMode ? null : generateArtwork(seed, normalizedControls, compositionMode)),
+    [compositionMode, isThreeDMode, normalizedControls, seed],
+  );
+
+  const threeDArtwork = useMemo(
+    () => (isThreeDMode ? generateArtwork3D(seed, normalizedControls) : null),
+    [isThreeDMode, normalizedControls, seed],
   );
 
   const melody = useMemo(
     () =>
-      generateMelody(artwork, {
-        seed,
-        controls: {
-          density: Number(controls.density.toFixed(2)),
-          airy: Number(controls.airy.toFixed(2)),
-          bloomSize: Number(controls.bloomSize.toFixed(2)),
-        },
-        compositionMode,
-      }),
-    [artwork, compositionMode, controls, seed],
+      artwork
+        ? generateMelody(artwork, {
+            seed,
+            controls: normalizedControls,
+            compositionMode,
+          })
+        : null,
+    [artwork, compositionMode, normalizedControls, seed],
   );
 
   useEffect(() => {
@@ -188,14 +200,20 @@ export default function App() {
 
   useEffect(() => {
     melodyPlayerRef.current?.stop();
-  }, [melody.id]);
+  }, [melody?.id]);
 
   function handleRandomize() {
     melodyPlayerRef.current?.stop();
     setSeed(createSeed());
     setArtKey((current) => current + 1);
     setIsExportOpen(false);
-    setStatus(compositionMode === "abstract" ? "New artwork generated" : "New bouquet generated");
+    setStatus(
+      compositionMode === "3d"
+        ? "New sculpture generated"
+        : compositionMode === "abstract"
+          ? "New artwork generated"
+          : "New bouquet generated",
+    );
   }
 
   async function handleCopyLink() {
@@ -227,10 +245,20 @@ export default function App() {
     setCompositionMode(nextMode);
     setArtKey((current) => current + 1);
     setIsExportOpen(false);
-    setStatus(nextMode === "abstract" ? "Abstract mode enabled" : "Bouquet mode enabled");
+    setStatus(
+      nextMode === "3d"
+        ? "3D sculpture mode enabled"
+        : nextMode === "abstract"
+          ? "Abstract mode enabled"
+          : "Bouquet mode enabled",
+    );
   }
 
   async function handleToggleMelody() {
+    if (isThreeDMode) {
+      setStatus("Melody is not available in 3D mode yet.");
+      return;
+    }
     if (!melodyPlayerRef.current) {
       setStatus("Audio is not ready yet.");
       return;
@@ -251,6 +279,11 @@ export default function App() {
   }
 
   async function handleExport(type) {
+    if (!artwork) {
+      setStatus("Export is not available in 3D mode yet.");
+      setIsExportOpen(false);
+      return;
+    }
     const svgMarkup = getArtworkMarkup(artwork);
     const filenameBase = `floral-letter-${seed}`;
     setIsBusy(true);
@@ -298,7 +331,13 @@ export default function App() {
         </header>
 
         <section className="stage motion-rise delay-one">
-          <ArtworkCard artwork={artwork} artKey={artKey} />
+          {isThreeDMode && threeDArtwork ? (
+            <Suspense fallback={<div className="three-loading">Loading 3D sculpture...</div>}>
+              <ThreeDArtworkCard scene={threeDArtwork} artKey={artKey} />
+            </Suspense>
+          ) : (
+            <ArtworkCard artwork={artwork} artKey={artKey} />
+          )}
         </section>
 
         <div className="toolbar-shell motion-rise delay-two">
@@ -320,17 +359,30 @@ export default function App() {
               >
                 Abstract
               </button>
+              <button
+                type="button"
+                className={`tool-button mode-button${compositionMode === "3d" ? " is-active" : ""}`}
+                aria-pressed={compositionMode === "3d"}
+                onClick={() => handleCompositionModeChange("3d")}
+              >
+                Sculpture
+              </button>
             </div>
             <button type="button" className="tool-button primary" onClick={handleRandomize}>
-              {compositionMode === "abstract" ? "New Artwork" : "New Bouquet"}
+              {compositionMode === "3d"
+                ? "New Sculpture"
+                : compositionMode === "abstract"
+                  ? "New Artwork"
+                  : "New Bouquet"}
             </button>
             <button
               type="button"
-              className={`tool-button melody-button${isMelodyPlaying ? " is-active" : ""}`}
+              className={`tool-button melody-button${isMelodyPlaying ? " is-active" : ""}${isThreeDMode ? " is-disabled" : ""}`}
               aria-pressed={isMelodyPlaying}
+              disabled={isThreeDMode}
               onClick={handleToggleMelody}
             >
-              {isMelodyPlaying ? "Stop Melody" : "Play Melody"}
+              {isThreeDMode ? "Melody Later" : isMelodyPlaying ? "Stop Melody" : "Play Melody"}
             </button>
             <button type="button" className="tool-button" onClick={handleCopyLink}>
               Copy Link
@@ -338,8 +390,9 @@ export default function App() {
             <div className="export-group">
               <button
                 type="button"
-                className="tool-button"
+                className={`tool-button${isThreeDMode ? " is-disabled" : ""}`}
                 aria-expanded={isExportOpen}
+                disabled={isThreeDMode}
                 onClick={() => setIsExportOpen((open) => !open)}
               >
                 Export
@@ -359,10 +412,21 @@ export default function App() {
         </div>
 
         <div className="melody-strip motion-rise delay-two" aria-live="polite">
-          <span className="melody-pill">{melody.title}</span>
-          <span className="melody-pill">Piano in {melody.descriptor}</span>
-          <span className="melody-pill">{melody.tempo} BPM</span>
-          <span className="melody-pill">{Math.round(melody.durationSeconds)}s</span>
+          {isThreeDMode && threeDArtwork ? (
+            <>
+              <span className="melody-pill">3D {threeDArtwork.sceneType.replace("-", " ")}</span>
+              <span className="melody-pill">{threeDArtwork.palette.name}</span>
+              <span className="melody-pill">{threeDArtwork.flowers.length} blooms</span>
+              <span className="melody-pill">Deterministic seed scene</span>
+            </>
+          ) : melody ? (
+            <>
+              <span className="melody-pill">{melody.title}</span>
+              <span className="melody-pill">Piano in {melody.descriptor}</span>
+              <span className="melody-pill">{melody.tempo} BPM</span>
+              <span className="melody-pill">{Math.round(melody.durationSeconds)}s</span>
+            </>
+          ) : null}
         </div>
 
         <div className={`status-toast${status ? " is-visible" : ""}`} aria-live="polite">
