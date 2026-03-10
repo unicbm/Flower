@@ -2,6 +2,7 @@ import { palettes } from "./palette.js";
 import { createRandom, rangeRandom, sample } from "./random.js";
 
 const sceneTypes = ["orb-bouquet", "spiral-branch", "floating-cluster"];
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const speciesProfiles = {
   anemone: {
     layers: [2, 3],
@@ -45,7 +46,7 @@ const speciesProfiles = {
   },
 };
 
-const materialFamilies = ["velvet", "pearl", "glass"];
+const materialFamilies = ["velvet", "pearl"];
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -94,6 +95,10 @@ function mixHex(left, right, ratio) {
   });
 }
 
+function randInt(random, min, max) {
+  return Math.floor(rangeRandom(random, min, max + 1));
+}
+
 function choosePalette(random) {
   return sample(random, palettes);
 }
@@ -140,22 +145,22 @@ function createCameraProfile(sceneType, airy) {
 function createLightingProfile(palette, random) {
   return {
     ambient: {
-      intensity: rangeRandom(random, 1.05, 1.35),
+      intensity: rangeRandom(random, 0.4, 0.6),
       color: mixHex(palette.haze, "#ffffff", 0.55),
     },
     key: {
       position: [4.6, 5.4, 5.2],
-      intensity: rangeRandom(random, 14, 18),
+      intensity: rangeRandom(random, 3.2, 4.8),
       color: mixHex(sample(random, palette.bloom), "#ffffff", 0.72),
     },
     rim: {
       position: [-5.2, 2.8, -3.8],
-      intensity: rangeRandom(random, 3.4, 5.2),
+      intensity: rangeRandom(random, 0.8, 1.4),
       color: mixHex(palette.accent, palette.haze, 0.55),
     },
     floor: {
       position: [0, -4.2, 0],
-      intensity: rangeRandom(random, 1.8, 2.8),
+      intensity: rangeRandom(random, 0.2, 0.5),
       color: mixHex(sample(random, palette.background), palette.haze, 0.62),
     },
   };
@@ -216,7 +221,7 @@ function createFlowerPosition(sceneType, index, count, controls, random) {
       rangeRandom(random, -2.4, 2.4) * airySpread,
     ];
   }
-  const angle = index * 1.618 + rangeRandom(random, -0.18, 0.18);
+  const angle = index * GOLDEN_ANGLE + rangeRandom(random, -0.12, 0.12);
   const radius = Math.sqrt((index + 0.7) / count) * 2.4 * airySpread;
   const offset = polar(radius, angle);
   return [
@@ -266,8 +271,8 @@ function createFlower(random, seed, sceneType, palette, controls, index, count) 
       rangeRandom(random, -Math.PI, Math.PI),
       rangeRandom(random, -0.3, 0.3),
     ],
-    layers: Math.round(rangeRandom(random, profile.layers[0], profile.layers[1] + 0.99)),
-    petalCount: Math.round(rangeRandom(random, profile.petals[0], profile.petals[1] + 0.99)),
+    layers: randInt(random, profile.layers[0], profile.layers[1]),
+    petalCount: randInt(random, profile.petals[0], profile.petals[1]),
     openness: rangeRandom(random, profile.openness[0], profile.openness[1]),
     petalLength: rangeRandom(random, profile.petalLength[0], profile.petalLength[1]),
     petalWidth: rangeRandom(random, profile.petalWidth[0], profile.petalWidth[1]),
@@ -280,12 +285,15 @@ function createFlower(random, seed, sceneType, palette, controls, index, count) 
     stemColor: mixHex(sample(random, palette.leaves), palette.accent, 0.18),
     leafPairs: createLeafPairs(random, palette, stemLength),
     swayPhase: rangeRandom(random, 0, Math.PI * 2),
-    swayAmplitude: rangeRandom(random, 0.04, 0.12),
+    swayAmplitude: rangeRandom(random, 0.015, 0.045),
   };
 }
 
 function createSculpturalArcs(random, palette, sceneType) {
-  const arcCount = sceneType === "floating-cluster" ? 2 : 3;
+  if (random() < 0.72) {
+    return [];
+  }
+  const arcCount = sceneType === "floating-cluster" ? 1 : 2;
   return Array.from({ length: arcCount }, (_, index) => ({
     id: `arc-${index}`,
     radius: rangeRandom(random, 1.6, 2.9),
@@ -293,8 +301,17 @@ function createSculpturalArcs(random, palette, sceneType) {
     rotation: [rangeRandom(random, -0.7, 0.7), rangeRandom(random, 0, Math.PI), rangeRandom(random, -0.4, 0.4)],
     tube: rangeRandom(random, 0.014, 0.026),
     color: mixHex(sample(random, palette.bloom), palette.haze, 0.48),
-    opacity: rangeRandom(random, 0.18, 0.34),
+    opacity: rangeRandom(random, 0.1, 0.18),
   }));
+}
+
+function createPedestalProfile(random, palette, sceneType) {
+  if (sceneType !== "orb-bouquet" || random() < 0.78) {
+    return null;
+  }
+  return {
+    color: mixHex(palette.accent, palette.haze, 0.24),
+  };
 }
 
 export function generateArtwork3D(seed, controls) {
@@ -325,5 +342,6 @@ export function generateArtwork3D(seed, controls) {
     atmosphere: createAtmosphere(random, palette, airy),
     flowers,
     sculpturalArcs: createSculpturalArcs(random, palette, sceneType),
+    pedestal: createPedestalProfile(random, palette, sceneType),
   };
 }

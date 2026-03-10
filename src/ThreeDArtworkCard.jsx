@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
 function detectWebglSupport() {
@@ -62,13 +62,11 @@ function createBloomMaterial(material, color, alternateColor) {
       type: "physical",
       props: {
         color,
-        roughness: 0.42,
-        metalness: 0.16,
-        clearcoat: 0.62,
-        clearcoatRoughness: 0.24,
-        iridescence: 0.22,
-        emissive: alternateColor,
-        emissiveIntensity: 0.05,
+        roughness: 0.66,
+        metalness: 0.06,
+        clearcoat: 0.14,
+        clearcoatRoughness: 0.48,
+        iridescence: 0.06,
       },
     };
   }
@@ -76,10 +74,10 @@ function createBloomMaterial(material, color, alternateColor) {
     type: "standard",
     props: {
       color,
-      roughness: 0.82,
+      roughness: 0.9,
       metalness: 0.04,
       emissive: alternateColor,
-      emissiveIntensity: 0.04,
+      emissiveIntensity: 0.015,
     },
   };
 }
@@ -160,6 +158,8 @@ function Leaves({ flower }) {
 function Bloom({ flower, reducedQuality }) {
   const bloomGroup = useRef(null);
   const petalGeometry = useMemo(() => new THREE.SphereGeometry(1, reducedQuality ? 16 : 24, reducedQuality ? 12 : 20), [reducedQuality]);
+  const primaryColor = useMemo(() => new THREE.Color(flower.petalColor), [flower.petalColor]);
+  const secondaryColor = useMemo(() => new THREE.Color(flower.petalColorAlt), [flower.petalColorAlt]);
 
   useEffect(() => () => petalGeometry.dispose(), [petalGeometry]);
 
@@ -200,6 +200,13 @@ function Bloom({ flower, reducedQuality }) {
         angle,
         Math.sin(angle * 2 + flower.swayPhase) * 0.16 + openness * 0.34,
       ];
+      const petalColor = primaryColor
+        .clone()
+        .lerp(
+          secondaryColor,
+          THREE.MathUtils.clamp(0.08 + layerRatio * 0.2 + (Math.sin(petalIndex * 1.37 + layerIndex * 0.82) + 1) * 0.07, 0, 0.38),
+        )
+        .getStyle();
       petals.push(
         <mesh
           key={`${flower.id}-petal-${layerIndex}-${petalIndex}`}
@@ -211,7 +218,7 @@ function Bloom({ flower, reducedQuality }) {
         >
           <BloomMaterial
             material={flower.material}
-            color={petalIndex % 3 === 0 ? flower.petalColorAlt : flower.petalColor}
+            color={petalColor}
             alternateColor={flower.petalColorAlt}
           />
         </mesh>,
@@ -285,6 +292,33 @@ function Pedestal({ color }) {
   );
 }
 
+function AutoFitCamera({ targetRef, cameraProfile }) {
+  const { camera, size } = useThree();
+
+  useEffect(() => {
+    if (!targetRef.current) {
+      return;
+    }
+    const box = new THREE.Box3().setFromObject(targetRef.current);
+    if (box.isEmpty()) {
+      return;
+    }
+    const center = box.getCenter(new THREE.Vector3());
+    const bounds = box.getSize(new THREE.Vector3());
+    const dominantSize = Math.max(bounds.x * 0.72, bounds.y, bounds.z * 0.9, 1);
+    const fovRadians = (cameraProfile.fov * Math.PI) / 180;
+    const fitHeightDistance = dominantSize / (2 * Math.tan(fovRadians / 2));
+    const fitWidthDistance = fitHeightDistance / Math.max(size.width / Math.max(size.height, 1), 0.65);
+    const distance = Math.max(fitHeightDistance, fitWidthDistance) * 1.34;
+    const direction = new THREE.Vector3(...cameraProfile.position).normalize();
+    camera.position.copy(center.clone().add(direction.multiplyScalar(distance)));
+    camera.lookAt(center.x, center.y + bounds.y * 0.04, center.z);
+    camera.updateProjectionMatrix();
+  }, [camera, cameraProfile.fov, cameraProfile.position, size.height, size.width, targetRef]);
+
+  return null;
+}
+
 function SceneContent({ scene, reducedQuality }) {
   const root = useRef(null);
 
@@ -293,13 +327,12 @@ function SceneContent({ scene, reducedQuality }) {
       return;
     }
     const t = state.clock.elapsedTime;
-    root.current.rotation.y = Math.sin(t * 0.16) * 0.32;
-    root.current.position.y = Math.sin(t * 0.34) * 0.08;
+    root.current.rotation.y = Math.sin(t * 0.08) * 0.06;
+    root.current.position.y = Math.sin(t * 0.24) * 0.018;
   });
 
   return (
     <>
-      <color attach="background" args={[scene.background.middle]} />
       <fog attach="fog" args={[scene.atmosphere.fogColor, scene.atmosphere.fogNear, scene.atmosphere.fogFar]} />
       <ambientLight color={scene.lightingProfile.ambient.color} intensity={scene.lightingProfile.ambient.intensity} />
       <directionalLight
@@ -320,13 +353,14 @@ function SceneContent({ scene, reducedQuality }) {
         intensity={scene.lightingProfile.floor.intensity}
         color={scene.lightingProfile.floor.color}
       />
+      <AutoFitCamera targetRef={root} cameraProfile={scene.cameraProfile} />
       <group ref={root}>
         <SculpturalArcs arcs={scene.sculpturalArcs} />
         <Atmosphere atmosphere={scene.atmosphere} reducedQuality={reducedQuality} />
         {scene.flowers.map((flower) => (
           <Bloom key={flower.id} flower={flower} reducedQuality={reducedQuality} />
         ))}
-        <Pedestal color={scene.palette.accent} />
+        {scene.pedestal ? <Pedestal color={scene.pedestal.color} /> : null}
       </group>
     </>
   );
@@ -344,7 +378,13 @@ export function ThreeDArtworkCard({ scene, artKey }) {
     <div className="art-scene art-scene--three-d">
       <div className="art-frame art-frame--three-d">
         <div className="art-frame-shine" aria-hidden="true" />
-        <div className="art-three-wrap" key={artKey}>
+        <div
+          className="art-three-wrap"
+          key={artKey}
+          style={{
+            background: `linear-gradient(180deg, ${scene.background.top}, ${scene.background.middle} 48%, ${scene.background.bottom})`,
+          }}
+        >
           {hasWebgl ? (
             <>
               <Canvas
@@ -352,7 +392,7 @@ export function ThreeDArtworkCard({ scene, artKey }) {
                 dpr={reducedQuality ? [1, 1.2] : [1, 1.8]}
                 gl={{
                   antialias: !reducedQuality,
-                  alpha: false,
+                  alpha: true,
                   powerPreference: reducedQuality ? "default" : "high-performance",
                 }}
                 camera={{
@@ -366,13 +406,13 @@ export function ThreeDArtworkCard({ scene, artKey }) {
               <div className="three-overlay" aria-hidden="true">
                 <span>{scene.sceneType.replace("-", " ")}</span>
                 <span>{scene.palette.name}</span>
-                <span>seeded 3D sculpture</span>
+                <span>experimental sculpture</span>
               </div>
             </>
           ) : (
             <div className="three-fallback" role="img" aria-label="3D rendering is unavailable on this device">
               <strong>3D preview unavailable</strong>
-              <span>This browser could not start WebGL. Bouquet and Abstract modes still work.</span>
+              <span>This browser could not start WebGL. Bouquet, Abstract, and Relief modes still work.</span>
             </div>
           )}
         </div>

@@ -204,6 +204,26 @@ textarea {
   animation: bloomIn 460ms ease;
 }
 
+.art-frame--relief {
+  transform:
+    rotateX(calc(var(--tilt-x) * 0.7))
+    rotateY(calc(var(--tilt-y) * 0.7))
+    translateY(calc(var(--float-distance) * -0.22));
+}
+
+.art-svg--relief {
+  --relief-pan-x: 0px;
+  --relief-pan-y: 0px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.18)),
+    linear-gradient(180deg, rgba(247, 239, 232, 0.92), rgba(234, 225, 218, 0.8));
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.art-svg--relief:hover {
+  box-shadow: 0 26px 48px rgba(113, 91, 95, 0.16);
+}
+
 .art-three-wrap {
   position: relative;
   min-height: min(74vh, 860px);
@@ -404,7 +424,7 @@ textarea {
 }
 
 .mode-button {
-  min-width: 5.8rem;
+  min-width: 5.2rem;
   padding-block: 0.72rem;
 }
 
@@ -605,6 +625,11 @@ textarea {
     animation: none !important;
   }
 
+  .art-svg--relief {
+    --relief-pan-x: 0px;
+    --relief-pan-y: 0px;
+  }
+
   .art-frame {
     transform:
       rotateX(calc(var(--tilt-x) * 0.48))
@@ -651,6 +676,13 @@ textarea {
       translateY(calc(var(--float-distance) * -0.24));
   }
 
+  .art-frame--relief {
+    transform:
+      rotateX(calc(var(--tilt-x) * 0.58))
+      rotateY(calc(var(--tilt-y) * 0.58))
+      translateY(calc(var(--float-distance) * -0.18));
+  }
+
   .mode-toggle {
     width: 100%;
     justify-content: center;
@@ -690,6 +722,13 @@ textarea {
       rotateX(calc(var(--tilt-x) * 0.5))
       rotateY(calc(var(--tilt-y) * 0.44))
       translateY(calc(var(--float-distance) * -0.14));
+  }
+
+  .art-frame--relief {
+    transform:
+      rotateX(calc(var(--tilt-x) * 0.4))
+      rotateY(calc(var(--tilt-y) * 0.34))
+      translateY(calc(var(--float-distance) * -0.12));
   }
 
   .art-svg {

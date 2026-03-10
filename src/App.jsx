@@ -13,12 +13,18 @@ const defaultControls = {
   bloomSize: 0.74,
 };
 const defaultCompositionMode = "bouquet";
+const compositionModeLabels = {
+  bouquet: "Bouquet",
+  abstract: "Abstract",
+  relief: "Relief",
+  "3d": "Sculpture (Experimental)",
+};
 const ThreeDArtworkCard = lazy(() =>
   import("./ThreeDArtworkCard.jsx").then((module) => ({ default: module.ThreeDArtworkCard })),
 );
 
 function sanitizeCompositionMode(value) {
-  return value === "abstract" || value === "3d" ? value : defaultCompositionMode;
+  return value === "abstract" || value === "relief" || value === "3d" ? value : defaultCompositionMode;
 }
 
 function createSeed() {
@@ -209,8 +215,10 @@ export default function App() {
     setIsExportOpen(false);
     setStatus(
       compositionMode === "3d"
-        ? "New sculpture generated"
-        : compositionMode === "abstract"
+        ? "New experimental sculpture generated"
+        : compositionMode === "relief"
+          ? "New relief generated"
+          : compositionMode === "abstract"
           ? "New artwork generated"
           : "New bouquet generated",
     );
@@ -247,8 +255,10 @@ export default function App() {
     setIsExportOpen(false);
     setStatus(
       nextMode === "3d"
-        ? "3D sculpture mode enabled"
-        : nextMode === "abstract"
+        ? "Sculpture (Experimental) mode enabled"
+        : nextMode === "relief"
+          ? "Relief mode enabled"
+          : nextMode === "abstract"
           ? "Abstract mode enabled"
           : "Bouquet mode enabled",
     );
@@ -256,7 +266,7 @@ export default function App() {
 
   async function handleToggleMelody() {
     if (isThreeDMode) {
-      setStatus("Melody is not available in 3D mode yet.");
+      setStatus("Melody is not available in Sculpture (Experimental) yet.");
       return;
     }
     if (!melodyPlayerRef.current) {
@@ -280,7 +290,7 @@ export default function App() {
 
   async function handleExport(type) {
     if (!artwork) {
-      setStatus("Export is not available in 3D mode yet.");
+      setStatus("Export is not available in Sculpture (Experimental) yet.");
       setIsExportOpen(false);
       return;
     }
@@ -332,7 +342,7 @@ export default function App() {
 
         <section className="stage motion-rise delay-one">
           {isThreeDMode && threeDArtwork ? (
-            <Suspense fallback={<div className="three-loading">Loading 3D sculpture...</div>}>
+            <Suspense fallback={<div className="three-loading">Loading experimental sculpture...</div>}>
               <ThreeDArtworkCard scene={threeDArtwork} artKey={artKey} />
             </Suspense>
           ) : (
@@ -361,17 +371,28 @@ export default function App() {
               </button>
               <button
                 type="button"
+                className={`tool-button mode-button${compositionMode === "relief" ? " is-active" : ""}`}
+                aria-pressed={compositionMode === "relief"}
+                onClick={() => handleCompositionModeChange("relief")}
+              >
+                Relief
+              </button>
+              <button
+                type="button"
                 className={`tool-button mode-button${compositionMode === "3d" ? " is-active" : ""}`}
                 aria-pressed={compositionMode === "3d"}
+                aria-label="Sculpture Experimental"
                 onClick={() => handleCompositionModeChange("3d")}
               >
-                Sculpture
+                Sculpture Exp.
               </button>
             </div>
             <button type="button" className="tool-button primary" onClick={handleRandomize}>
               {compositionMode === "3d"
                 ? "New Sculpture"
-                : compositionMode === "abstract"
+                : compositionMode === "relief"
+                  ? "New Relief"
+                  : compositionMode === "abstract"
                   ? "New Artwork"
                   : "New Bouquet"}
             </button>
@@ -382,7 +403,7 @@ export default function App() {
               disabled={isThreeDMode}
               onClick={handleToggleMelody}
             >
-              {isThreeDMode ? "Melody Later" : isMelodyPlaying ? "Stop Melody" : "Play Melody"}
+              {isThreeDMode ? "Melody Disabled" : isMelodyPlaying ? "Stop Melody" : "Play Melody"}
             </button>
             <button type="button" className="tool-button" onClick={handleCopyLink}>
               Copy Link
@@ -414,10 +435,11 @@ export default function App() {
         <div className="melody-strip motion-rise delay-two" aria-live="polite">
           {isThreeDMode && threeDArtwork ? (
             <>
-              <span className="melody-pill">3D {threeDArtwork.sceneType.replace("-", " ")}</span>
+              <span className="melody-pill">{compositionModeLabels["3d"]}</span>
+              <span className="melody-pill">{threeDArtwork.sceneType.replace("-", " ")}</span>
               <span className="melody-pill">{threeDArtwork.palette.name}</span>
               <span className="melody-pill">{threeDArtwork.flowers.length} blooms</span>
-              <span className="melody-pill">Deterministic seed scene</span>
+              <span className="melody-pill">Experimental deterministic scene</span>
             </>
           ) : melody ? (
             <>

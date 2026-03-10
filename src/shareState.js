@@ -48,7 +48,7 @@ async function decompressString(serialized) {
 
 export async function serializeArtworkState(state) {
   const payload = {
-    version: 3,
+    version: 4,
     ...state,
   };
   return compressString(JSON.stringify(payload));
@@ -57,7 +57,7 @@ export async function serializeArtworkState(state) {
 export async function parseArtworkState(rawValue) {
   const jsonText = await decompressString(rawValue);
   const parsed = JSON.parse(jsonText);
-  if (!parsed || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3)) {
+  if (!parsed || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)) {
     throw new Error("Invalid artwork version");
   }
   return parsed;

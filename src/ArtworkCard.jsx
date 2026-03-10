@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { createRandom } from "./random.js";
 
 function petalBlurId(value) {
@@ -133,6 +134,26 @@ function wrapMotion(markup, artworkSeed, item) {
   );
   return `
     <g class="motion-node motion-node--${item.motion.kind}" style="${style}">
+      ${markup}
+    </g>
+  `;
+}
+
+function wrapRelief(markup, item, composition) {
+  if (composition?.mode !== "relief") {
+    return markup;
+  }
+  const relief = item.relief ?? {};
+  const layer = relief.layer ?? "mid";
+  const shadow = relief.shadow ? ` filter="url(#relief-shadow-${relief.shadow})"` : "";
+  const tiltBias = relief.tiltBias ?? [0, 0];
+  const style = [
+    `--relief-shift-x:${(tiltBias[0] * (relief.parallax ?? 0)).toFixed(3)}`,
+    `--relief-shift-y:${(tiltBias[1] * (relief.parallax ?? 0)).toFixed(3)}`,
+    `--relief-scale:${(1 + (relief.parallax ?? 0) * 0.012).toFixed(3)}`,
+  ].join(";");
+  return `
+    <g class="relief-node relief-node--${layer}" style="${style}"${shadow}>
       ${markup}
     </g>
   `;
@@ -429,8 +450,18 @@ function buildMarkup(artwork) {
     })),
   ]
     .sort((left, right) => left.depth - right.depth)
-    .map((item) => wrapMotion(item.markup, artwork.seed ?? "flower", item))
+    .map((item) => wrapRelief(wrapMotion(item.markup, artwork.seed ?? "flower", item), item, artwork.composition))
     .join("");
+
+  const isRelief = artwork.composition?.mode === "relief";
+  const reliefFrameGlow = isRelief
+    ? `
+      <g opacity="0.54">
+        <ellipse cx="${(frame.width * 0.5).toFixed(2)}" cy="${(frame.height * 0.28).toFixed(2)}" rx="${(frame.width * 0.28).toFixed(2)}" ry="${(frame.height * 0.12).toFixed(2)}" fill="${palette.haze}" opacity="0.42" filter="url(#softBlur)" />
+        <ellipse cx="${(frame.width * 0.52).toFixed(2)}" cy="${(frame.height * 0.76).toFixed(2)}" rx="${(frame.width * 0.2).toFixed(2)}" ry="${(frame.height * 0.08).toFixed(2)}" fill="${palette.accent}" opacity="0.14" filter="url(#shadowBlur)" />
+      </g>
+    `
+    : "";
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${frame.width} ${frame.height}" width="${frame.width}" height="${frame.height}" aria-label="Ornate floral artwork">
@@ -460,6 +491,15 @@ function buildMarkup(artwork) {
         <filter id="shadowBlur">
           <feGaussianBlur stdDeviation="12" />
         </filter>
+        <filter id="relief-shadow-soft" x="-14%" y="-14%" width="128%" height="132%">
+          <feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="${palette.accent}" flood-opacity="0.14" />
+        </filter>
+        <filter id="relief-shadow-mid" x="-14%" y="-14%" width="128%" height="136%">
+          <feDropShadow dx="0" dy="9" stdDeviation="11" flood-color="${palette.accent}" flood-opacity="0.18" />
+        </filter>
+        <filter id="relief-shadow-strong" x="-14%" y="-14%" width="132%" height="140%">
+          <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="${palette.accent}" flood-opacity="0.24" />
+        </filter>
         <filter id="paperGrain" x="-10%" y="-10%" width="120%" height="120%">
           <feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="2" seed="${grainSeed}" result="noise" />
           <feColorMatrix
@@ -479,6 +519,23 @@ function buildMarkup(artwork) {
               ).toFixed(1)}" /></filter>`,
           )
           .join("")}
+        <style>
+          .relief-node {
+            transform-box: fill-box;
+            transform-origin: center;
+            transform: translate(calc(var(--relief-pan-x, 0px) * var(--relief-shift-x, 0)), calc(var(--relief-pan-y, 0px) * var(--relief-shift-y, 0))) scale(var(--relief-scale, 1));
+            transition: transform 180ms ease-out, opacity 180ms ease-out;
+          }
+          .relief-node--back {
+            opacity: 0.96;
+          }
+          .relief-node--mid {
+            opacity: 0.99;
+          }
+          .relief-node--front {
+            opacity: 1;
+          }
+        </style>
       </defs>
 
       <rect width="${frame.width}" height="${frame.height}" rx="42" fill="url(#paper)" />
@@ -488,6 +545,7 @@ function buildMarkup(artwork) {
       <rect x="62" y="66" width="${frame.width - 124}" height="${frame.height - 132}" rx="24" fill="none" stroke="${palette.metal}" stroke-opacity="0.22" />
       <ellipse cx="180" cy="172" rx="248" ry="176" fill="url(#sunwash)" opacity="0.92" />
       <rect width="${frame.width}" height="${frame.height}" rx="42" fill="url(#vignette)" />
+      ${reliefFrameGlow}
 
       <g opacity="0.38">
         <path d="M 86 96 Q 132 74 178 96" fill="none" stroke="${palette.metal}" stroke-width="1.1" />
@@ -525,14 +583,39 @@ function buildMarkup(artwork) {
 }
 
 export function ArtworkCard({ artwork, artKey }) {
+  const frameRef = useRef(null);
   const markup = buildMarkup(artwork);
+  const isRelief = artwork.composition?.mode === "relief";
+
+  function handlePointerMove(event) {
+    if (!isRelief || !frameRef.current) {
+      return;
+    }
+    const rect = frameRef.current.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 18;
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * 18;
+    frameRef.current.style.setProperty("--relief-pan-x", `${x.toFixed(2)}px`);
+    frameRef.current.style.setProperty("--relief-pan-y", `${y.toFixed(2)}px`);
+  }
+
+  function handlePointerLeave() {
+    if (!frameRef.current) {
+      return;
+    }
+    frameRef.current.style.setProperty("--relief-pan-x", "0px");
+    frameRef.current.style.setProperty("--relief-pan-y", "0px");
+  }
+
   return (
     <div className="art-scene">
-      <div className="art-frame">
+      <div className={`art-frame${isRelief ? " art-frame--relief" : ""}`}>
         <div className="art-frame-shine" aria-hidden="true" />
         <div
-          className="art-svg"
+          ref={frameRef}
+          className={`art-svg${isRelief ? " art-svg--relief" : ""}`}
           key={artKey}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={handlePointerLeave}
           dangerouslySetInnerHTML={{ __html: markup }}
         />
       </div>

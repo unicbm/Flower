@@ -5,7 +5,7 @@
 <h1 align="center">Flower Randomizer</h1>
 
 <p align="center">
-  Generative floral artwork with shareable seeds, SVG/PNG export, and dual composition modes.
+  Generative floral artwork with shareable seeds, SVG/PNG export, and three primary composition modes.
 </p>
 
 <p align="center">
@@ -23,7 +23,8 @@
 ## Overview
 
 `Flower Randomizer` is a small `React` + `Vite` project for generating floral artwork from a seed.
-It currently supports both a classic `Bouquet` composition and a more experimental `Abstract` composition.
+It currently supports three primary SVG-first modes: `Bouquet`, `Abstract`, and `Relief`.
+An additional `Sculpture (Experimental)` mode is available as a seeded WebGL study, but it does not participate in the export or melody pipeline yet.
 
 `Flower Randomizer` 是一个基于 `React` 和 `Vite` 的花艺生成项目。
 它支持经典的 `Bouquet` 构图，也支持更自由、更艺术化的 `Abstract` 构图。
@@ -52,9 +53,10 @@ It currently supports both a classic `Bouquet` composition and a more experiment
 ## Features
 
 - Generate floral artwork from deterministic seeds
-- Switch between `Bouquet` and `Abstract` composition modes
+- Switch between `Bouquet`, `Abstract`, and `Relief` composition modes
 - Restore and share the current artwork through the URL
-- Export artwork as `SVG` or `PNG`
+- Export `Bouquet`, `Abstract`, and `Relief` artwork as `SVG` or `PNG`
+- Explore `Sculpture (Experimental)` as an optional three.js-based scene mode
 - Lightweight frontend-only project with no backend dependency
 
 ## Local Development
@@ -100,8 +102,10 @@ The preview images are written to `docs/`.
 ```text
 src/
   App.jsx                Main app shell and interactions
-  ArtworkCard.jsx        Artwork rendering
-  flowerGenerator.js     Composition and floral generation logic
+  ArtworkCard.jsx        SVG artwork rendering, relief layering, and export markup
+  flowerGenerator.js     Bouquet, Abstract, and Relief generation logic
+  ThreeDArtworkCard.jsx  Experimental sculpture renderer
+  threeDGenerator.js     Experimental sculpture scene generation
   exportArtwork.js       SVG/PNG export helpers
   shareState.js          Share-link serialization and parsing
 scripts/
