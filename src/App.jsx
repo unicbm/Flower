@@ -15,6 +15,24 @@ import { generateMelody } from "./musicGenerator.js";
 import { parseArtworkState, serializeArtworkState } from "./shareState.js";
 
 const defaultCompositionMode = "bouquet";
+const developerModeStorageKey = "flower-randomizer:developer-mode";
+
+function parseBooleanFlag(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "on", "yes", "enable", "enabled", "open", "dev"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "off", "no", "disable", "disabled", "close", "locked"].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+}
 
 export default function App() {
   const [seed, setSeed] = useState(createSeed);
@@ -25,6 +43,7 @@ export default function App() {
   const [isBusy, setIsBusy] = useState(false);
   const [isMelodyPlaying, setIsMelodyPlaying] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
   const [shareLink, setShareLink] = useState(
     typeof window === "undefined" ? "" : window.location.href,
   );
@@ -111,6 +130,30 @@ export default function App() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isExportOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const queryFlag = parseBooleanFlag(params.get("dev"));
+    const queryDeveloper = params.get("developer");
+    const explicitFlag =
+      queryFlag !== null ? queryFlag : parseBooleanFlag(queryDeveloper);
+
+    if (explicitFlag !== null) {
+      setIsDeveloperMode(explicitFlag);
+      window.localStorage.setItem(
+        developerModeStorageKey,
+        explicitFlag ? "1" : "0",
+      );
+      return;
+    }
+
+    const stored = window.localStorage.getItem(developerModeStorageKey);
+    setIsDeveloperMode(stored === "1");
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -402,43 +445,48 @@ export default function App() {
           </div>
         </div>
 
-        <section className="control-panel-shell motion-rise delay-two" aria-label="Generation controls">
-          <div className="control-panel">
-            <div className="control-panel-header">
-              <div>
-                <p className="control-panel-eyebrow">Generator Controls</p>
-                <h2>Dial The Composition</h2>
+        {isDeveloperMode ? (
+          <section
+            className="control-panel-shell motion-rise delay-two"
+            aria-label="Generation controls"
+          >
+            <div className="control-panel">
+              <div className="control-panel-header">
+                <div>
+                  <p className="control-panel-eyebrow">Generator Controls</p>
+                  <h2>Dial The Composition</h2>
+                </div>
+                <button
+                  type="button"
+                  className="tool-button control-reset"
+                  disabled={isBusy || !areControlsDirty}
+                  onClick={handleResetControls}
+                >
+                  Reset
+                </button>
               </div>
-              <button
-                type="button"
-                className="tool-button control-reset"
-                disabled={isBusy || !areControlsDirty}
-                onClick={handleResetControls}
-              >
-                Reset
-              </button>
+              <div className="control-grid">
+                {controlDefinitions.map((field) => (
+                  <label key={field.key} className="control-field">
+                    <span className="control-copy">
+                      <span className="control-label">{field.label}</span>
+                      <span className="control-value">{normalizedControls[field.key].toFixed(2)}</span>
+                    </span>
+                    <input
+                      type="range"
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      value={controls[field.key]}
+                      disabled={isBusy}
+                      onChange={(event) => handleControlChange(field.key, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
-            <div className="control-grid">
-              {controlDefinitions.map((field) => (
-                <label key={field.key} className="control-field">
-                  <span className="control-copy">
-                    <span className="control-label">{field.label}</span>
-                    <span className="control-value">{normalizedControls[field.key].toFixed(2)}</span>
-                  </span>
-                  <input
-                    type="range"
-                    min={field.min}
-                    max={field.max}
-                    step={field.step}
-                    value={controls[field.key]}
-                    disabled={isBusy}
-                    onChange={(event) => handleControlChange(field.key, event.target.value)}
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <div className="melody-strip motion-rise delay-two" aria-live="polite">
           {melody ? (
@@ -454,6 +502,18 @@ export default function App() {
         <div className={`status-toast${status ? " is-visible" : ""}`} aria-live="polite">
           {isBusy ? "Processing" : status}
         </div>
+
+        <footer className="site-footer">
+          <a
+            className="site-link"
+            href="https://github.com/unicbm/Flower"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub: unicbm/Flower
+          </a>
+          <span>© 2026 unicbm. All rights reserved.</span>
+        </footer>
       </main>
     </div>
   );
