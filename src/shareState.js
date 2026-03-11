@@ -1,5 +1,14 @@
+import { createArtworkStatePayload, normalizeArtworkState } from "./artworkState.js";
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+const supportedVersions = new Set([1, 2, 3, 4, 5]);
+
+function createShareStateError(message, code) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
 
 function base64UrlEncode(bytes) {
   let binary = "";
@@ -18,24 +27,15 @@ function base64UrlDecode(value) {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-async function compressString(text) {
-  if (typeof CompressionStream === "undefined") {
-    return base64UrlEncode(encoder.encode(text));
-  }
-  const stream = new CompressionStream("gzip");
-  const writer = stream.writable.getWriter();
-  await writer.write(encoder.encode(text));
-  await writer.close();
-  const compressed = await new Response(stream.readable).arrayBuffer();
-  return `gz.${base64UrlEncode(new Uint8Array(compressed))}`;
-}
-
 async function decompressString(serialized) {
   if (!serialized.startsWith("gz.")) {
     return decoder.decode(base64UrlDecode(serialized));
   }
   if (typeof DecompressionStream === "undefined") {
-    throw new Error("Browser does not support compressed links.");
+    throw createShareStateError(
+      "Browser does not support compressed links.",
+      "UNSUPPORTED_COMPRESSED_LINK",
+    );
   }
   const compressed = base64UrlDecode(serialized.slice(3));
   const stream = new DecompressionStream("gzip");
@@ -46,19 +46,27 @@ async function decompressString(serialized) {
   return decoder.decode(text);
 }
 
-export async function serializeArtworkState(state) {
-  const payload = {
-    version: 4,
-    ...state,
-  };
-  return compressString(JSON.stringify(payload));
+export function isCompressedArtworkState(value) {
+  return typeof value === "string" && value.startsWith("gz.");
 }
 
-export async function parseArtworkState(rawValue) {
+export function isUnsupportedCompressedArtworkStateError(error) {
+  return error?.code === "UNSUPPORTED_COMPRESSED_LINK";
+}
+
+export async function serializeArtworkState(state) {
+  const payload = createArtworkStatePayload(state);
+  return base64UrlEncode(encoder.encode(JSON.stringify(payload)));
+}
+
+export async function parseArtworkState(rawValue, options = {}) {
   const jsonText = await decompressString(rawValue);
   const parsed = JSON.parse(jsonText);
-  if (!parsed || (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3 && parsed.version !== 4)) {
-    throw new Error("Invalid artwork version");
+  if (!parsed || !supportedVersions.has(parsed.version)) {
+    throw createShareStateError("Invalid artwork version", "INVALID_ARTWORK_VERSION");
   }
-  return parsed;
+  if (options.normalize === false) {
+    return parsed;
+  }
+  return normalizeArtworkState(parsed);
 }

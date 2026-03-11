@@ -1,4 +1,5 @@
 import { palettes } from "./palette.js";
+import { getControlsKey, normalizeControls } from "./artworkState.js";
 import { createRandom, rangeRandom, sample } from "./random.js";
 
 function polar(cx, cy, radius, angle) {
@@ -1125,225 +1126,6 @@ function buildRenderOrder(layers) {
     .map((item) => item.id);
 }
 
-function clampNumber(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function createReliefBias(frame, x, y) {
-  return [
-    clampNumber((x - frame.width * 0.5) / (frame.width * 0.5), -1, 1),
-    clampNumber((y - frame.height * 0.48) / (frame.height * 0.5), -1, 1),
-  ];
-}
-
-function decorateReliefItems(items, frame, options) {
-  const {
-    layer,
-    parallax,
-    depthShift = 0,
-    opacityScale = 1,
-    shadow = "soft",
-    fallbackX = frame.width * 0.5,
-    fallbackY = frame.height * 0.5,
-  } = options;
-
-  return items.map((item) => {
-    const x = typeof item.x === "number" ? item.x : fallbackX;
-    const y = typeof item.y === "number" ? item.y : fallbackY;
-    const opacity =
-      typeof item.opacity === "number" ? clampNumber(item.opacity * opacityScale, 0.06, 1) : item.opacity;
-    return {
-      ...item,
-      ...(typeof opacity === "number" ? { opacity } : {}),
-      depth: (item.depth ?? 0) + depthShift,
-      relief: {
-        layer,
-        parallax,
-        shadow,
-        occlusionOrder: (item.depth ?? 0) + depthShift,
-        tiltBias: createReliefBias(frame, x, y),
-      },
-    };
-  });
-}
-
-function createReliefArtwork(seed, controls) {
-  const base = generateArtwork(seed, controls, "bouquet");
-  const random = createRandom(`relief:${seed}:${JSON.stringify(controls)}`);
-  const frame = base.frame;
-
-  const atmosphereVeils = decorateReliefItems(
-    [
-      ...base.atmosphereVeils,
-      ...Array.from({ length: 3 }, (_, index) => ({
-        ...createVeil(
-          random,
-          base.palette,
-          rangeRandom(random, 120, frame.width - 120),
-          rangeRandom(random, 136, frame.height - 196),
-          rangeRandom(random, 0.86, 1.1),
-        ),
-        depth: -294 + index * 6,
-      })),
-    ],
-    frame,
-    { layer: "back", parallax: 0.12, depthShift: -34, opacityScale: 0.9, shadow: "soft" },
-  );
-  const paperStrokes = decorateReliefItems(base.paperStrokes, frame, {
-    layer: "back",
-    parallax: 0.08,
-    depthShift: -22,
-    opacityScale: 0.92,
-    shadow: "soft",
-  });
-  const washes = decorateReliefItems(
-    [
-      ...base.washes,
-      ...Array.from({ length: 2 }, (_, index) => ({
-        ...createWash(
-          random,
-          base.palette,
-          rangeRandom(random, 182, frame.width - 182),
-          rangeRandom(random, 212, frame.height - 248),
-          rangeRandom(random, 1.12, 1.34),
-        ),
-        depth: -222 + index * 10,
-      })),
-    ],
-    frame,
-    { layer: "back", parallax: 0.14, depthShift: -18, opacityScale: 0.96, shadow: "soft" },
-  );
-  const shadowLeaves = decorateReliefItems(base.shadowLeaves, frame, {
-    layer: "back",
-    parallax: 0.18,
-    depthShift: -10,
-    opacityScale: 1.08,
-    shadow: "soft",
-  });
-  const gildedDust = decorateReliefItems(base.gildedDust, frame, {
-    layer: "mid",
-    parallax: 0.22,
-    depthShift: -6,
-    opacityScale: 0.94,
-    shadow: "soft",
-  });
-  const tendrils = decorateReliefItems(base.tendrils, frame, {
-    layer: "mid",
-    parallax: 0.3,
-    depthShift: 4,
-    opacityScale: 1,
-    shadow: "mid",
-    fallbackY: frame.height * 0.62,
-  });
-  const ornaments = decorateReliefItems(base.ornaments, frame, {
-    layer: "mid",
-    parallax: 0.28,
-    depthShift: -2,
-    opacityScale: 0.9,
-    shadow: "mid",
-  });
-  const stems = decorateReliefItems(base.stems, frame, {
-    layer: "mid",
-    parallax: 0.38,
-    depthShift: 6,
-    opacityScale: 1,
-    shadow: "mid",
-    fallbackY: frame.height * 0.82,
-  });
-  const branchlets = decorateReliefItems(base.branchlets, frame, {
-    layer: "mid",
-    parallax: 0.4,
-    depthShift: 10,
-    opacityScale: 1,
-    shadow: "mid",
-    fallbackY: frame.height * 0.7,
-  });
-  const leaves = decorateReliefItems(base.leaves, frame, {
-    layer: "mid",
-    parallax: 0.54,
-    depthShift: 18,
-    opacityScale: 1.02,
-    shadow: "mid",
-    fallbackY: frame.height * 0.62,
-  });
-  const sprigs = decorateReliefItems(base.sprigs, frame, {
-    layer: "mid",
-    parallax: 0.56,
-    depthShift: 22,
-    opacityScale: 1,
-    shadow: "mid",
-    fallbackY: frame.height * 0.56,
-  });
-  const miniBlooms = decorateReliefItems(base.miniBlooms, frame, {
-    layer: "mid",
-    parallax: 0.62,
-    depthShift: 28,
-    opacityScale: 1,
-    shadow: "mid",
-    fallbackY: frame.height * 0.48,
-  });
-  const blooms = decorateReliefItems(base.blooms, frame, {
-    layer: "front",
-    parallax: 0.88,
-    depthShift: 42,
-    opacityScale: 1,
-    shadow: "strong",
-    fallbackY: frame.height * 0.42,
-  });
-  const buds = decorateReliefItems(base.buds, frame, {
-    layer: "front",
-    parallax: 0.8,
-    depthShift: 36,
-    opacityScale: 1,
-    shadow: "strong",
-    fallbackY: frame.height * 0.46,
-  });
-  const floatingPetals = decorateReliefItems(base.floatingPetals, frame, {
-    layer: "front",
-    parallax: 1.04,
-    depthShift: 56,
-    opacityScale: 1,
-    shadow: "strong",
-  });
-
-  const reliefLayers = {
-    atmosphereVeils,
-    paperStrokes,
-    shadowLeaves,
-    gildedDust,
-    stems,
-    branchlets,
-    leaves,
-    blooms,
-    buds,
-    miniBlooms,
-    floatingPetals,
-    washes,
-    tendrils,
-    ornaments,
-    sprigs,
-  };
-
-  return {
-    ...base,
-    ...reliefLayers,
-    composition: {
-      ...base.composition,
-      mode: "relief",
-      depthLayers: [
-        { id: "back", depth: -320, blur: 26, opacity: 0.9, shadowStrength: 0.12 },
-        { id: "mid", depth: 30, blur: 12, opacity: 1, shadowStrength: 0.2 },
-        { id: "front", depth: 168, blur: 6, opacity: 1, shadowStrength: 0.28 },
-      ],
-      renderOrder: buildRenderOrder(reliefLayers),
-    },
-    textureDots: base.textureDots.map((dot) => ({
-      ...dot,
-      opacity: clampNumber(dot.opacity * 0.94, 0.04, 0.22),
-    })),
-  };
-}
-
 function generateAbstractArtwork(seed, controls, random, palette, canvasWidth, canvasHeight) {
   const density = controls.density ?? 0.68;
   const airy = controls.airy ?? 0.62;
@@ -1688,16 +1470,21 @@ function generateAbstractArtwork(seed, controls, random, palette, canvasWidth, c
 }
 
 export function generateArtwork(seed, controls, compositionMode = "bouquet") {
-  if (compositionMode === "relief") {
-    return createReliefArtwork(seed, controls);
-  }
+  const normalizedControls = normalizeControls(controls);
   const mode = compositionMode === "abstract" ? "abstract" : "bouquet";
-  const random = createRandom(`${seed}:${mode}:${JSON.stringify(controls)}`);
+  const random = createRandom(`${seed}:${mode}:${getControlsKey(normalizedControls)}`);
   const palette = palettes[Math.floor(random() * palettes.length)];
   const canvasWidth = 760;
   const canvasHeight = 960;
   if (mode === "abstract") {
-    return generateAbstractArtwork(seed, controls, random, palette, canvasWidth, canvasHeight);
+    return generateAbstractArtwork(
+      seed,
+      normalizedControls,
+      random,
+      palette,
+      canvasWidth,
+      canvasHeight,
+    );
   }
   const atmosphereVeils = [];
   const paperStrokes = [];
@@ -1716,8 +1503,8 @@ export function generateArtwork(seed, controls, compositionMode = "bouquet") {
   const sprigs = [];
   const bouquetPlan = [];
 
-  const density = controls.density ?? 0.68;
-  const airy = controls.airy ?? 0.62;
+  const density = normalizedControls.density;
+  const airy = normalizedControls.airy;
   const bloomCount = 6 + Math.round(density * 2);
   const bouquetLeft = 124;
   const bouquetRight = 648;
@@ -1883,7 +1670,15 @@ export function generateArtwork(seed, controls, compositionMode = "bouquet") {
           : kind === "orchid"
             ? rangeRandom(random, 0.82, 0.98)
             : rangeRandom(random, 0.84, 1.02);
-    const bloom = createBloomByKind(random, palette, kind, bloomX, bloomY, controls, sizeFactor);
+    const bloom = createBloomByKind(
+      random,
+      palette,
+      kind,
+      bloomX,
+      bloomY,
+      normalizedControls,
+      sizeFactor,
+    );
     blooms.push({
       ...bloom,
       depth,
